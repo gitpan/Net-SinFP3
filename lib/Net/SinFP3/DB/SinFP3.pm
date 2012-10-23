@@ -1,5 +1,5 @@
 #
-# $Id: SinFP3.pm 2161 2012-09-04 19:13:33Z gomor $
+# $Id: SinFP3.pm 2186 2012-10-23 13:12:32Z gomor $
 #
 package Net::SinFP3::DB::SinFP3;
 use strict;
@@ -542,6 +542,7 @@ sub update {
    my $ua = LWP::UserAgent->new;
    $ua->timeout(10);
    $ua->env_proxy;
+   $ua->agent("Net::SinFP3 ".$Net::SinFP3::VERSION);
 
    my $dbFile = $self->file;
 

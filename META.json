@@ -55,10 +55,11 @@
             "POSIX" : 0,
             "Parallel::ForkManager" : 0,
             "Socket" : 0,
-            "Socket6" : 0
+            "Socket6" : 0,
+            "perl" : "5.006001"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "1.00"
+   "version" : "1.01"
 }

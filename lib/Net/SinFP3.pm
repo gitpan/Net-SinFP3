@@ -1,11 +1,11 @@
 #
-# $Id: SinFP3.pm 2172 2012-09-12 12:48:37Z gomor $
+# $Id: SinFP3.pm 2186 2012-10-23 13:12:32Z gomor $
 #
 package Net::SinFP3;
 use strict;
 use warnings;
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 use base qw(Class::Gomor::Array);
 our @AS = qw(

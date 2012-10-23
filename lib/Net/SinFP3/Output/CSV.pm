@@ -1,5 +1,5 @@
 #
-# $Id: CSV.pm 2160 2012-09-04 19:09:37Z gomor $
+# $Id: CSV.pm 2186 2012-10-23 13:12:32Z gomor $
 #
 package Net::SinFP3::Output::CSV;
 use strict;
@@ -123,7 +123,7 @@ __END__
 
 =head1 NAME
 
-Net::SinFP3::Output::Ubigraph - plugin to display results using Ubigraph
+Net::SinFP3::Output::CSV - plugin to save results in CSV format
 
 =head1 DESCRIPTION
 

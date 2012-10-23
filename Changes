@@ -1,7 +1,11 @@
 Revision history for Perl extension Net::SinFP.
 
-1.00 Sat Sep 21 15:33:18 CEST 2012
-   - improvement: added a score (easier to understant than matching masks)
+1.01 Tue Oct 23 15:12:22 CEST 2012
+   - new: -target parameter used for Input::ArpDiscover
+   - update: set a User-Agent for -update-db
+
+1.00 Fri Sep 21 15:33:18 CEST 2012
+   - improvement: added a score (easier to understand than matching masks)
    - improvement: added patternTcpWScale and patternTcpOLength
    - improvement: -4 parameter no more required
      => new algo matches all signatures, and keeps the best matches

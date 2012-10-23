@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.PL 2161 2012-09-04 19:13:33Z gomor $
+# $Id: Makefile.PL 2186 2012-10-23 13:12:32Z gomor $
 #
 use ExtUtils::MakeMaker;
 
@@ -36,6 +36,7 @@ WriteMakefile(
       Socket                  => 0,
       Socket6                 => 0,
    },
-   EXE_FILES => [ 'bin/sinfp3.pl', 'bin/sinfp3.db', ],
-   AUTHOR    => 'GomoR <gomor_at_networecon.com>',
+   EXE_FILES        => [ 'bin/sinfp3.pl', 'bin/sinfp3.db', ],
+   AUTHOR           => 'GomoR <gomor_at_networecon.com>',
+   MIN_PERL_VERSION => '5.6.1',
 );

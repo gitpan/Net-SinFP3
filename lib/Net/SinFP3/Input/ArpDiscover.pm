@@ -1,5 +1,5 @@
 #
-# $Id: ArpDiscover.pm 2179 2012-09-13 09:51:32Z gomor $
+# $Id: ArpDiscover.pm 2186 2012-10-23 13:12:32Z gomor $
 #
 package Net::SinFP3::Input::ArpDiscover;
 use strict;
@@ -73,7 +73,14 @@ sub _arpDiscover {
 
    my @list   = ();
    my %reply  = ();
-   my $ipList = $global->expandSubnet(subnet => $global->subnet);
+   my $ipList = ();
+   # User want to overwrite default scanning option (local subnet)
+   if ($global->target) {
+      $ipList = $global->expandSubnet(subnet => $global->target);
+   }
+   else {
+      $ipList = $global->expandSubnet(subnet => $global->subnet);
+   }
    for my $ip (@$ipList) {
       # We scan ARP for everyone but our own IP
       next if $ip eq $global->ip;

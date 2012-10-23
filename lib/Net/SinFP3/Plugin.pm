@@ -1,7 +1,9 @@
 #
-# $Id: Plugin.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Plugin.pm 2186 2012-10-23 13:12:32Z gomor $
 #
 package Net::SinFP3::Plugin;
+use strict;
+use warnings;
 
 1;
 
