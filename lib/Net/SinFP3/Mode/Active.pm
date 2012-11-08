@@ -1,5 +1,5 @@
 #
-# $Id: Active.pm 2171 2012-09-12 11:45:38Z gomor $
+# $Id: Active.pm 2188 2012-11-08 16:20:47Z gomor $
 #
 package Net::SinFP3::Mode::Active;
 use strict;
@@ -35,6 +35,7 @@ use Net::Frame::Layer::TCP qw(:consts);
 sub take {
    return [
       'Net::SinFP3::Next::IpPort',
+      'Net::SinFP3::Next::Frame',
       'Net::SinFP3::Next::MultiFrame',
       'Net::SinFP3::Next::Active',
    ];
@@ -191,6 +192,8 @@ sub _getResponseSignature {
    my $self = shift;
    my ($p, $p2) = @_;
 
+   my $global = $self->global;
+
    if (!$p || !$p->reply) {
       return Net::SinFP3::Ext::S->new;
    }
@@ -201,8 +204,13 @@ sub _getResponseSignature {
    my $o = $self->_tcp->_analyzeTcpOptions($p);
 
    # Specific for Connect input module
-   if (ref($self->global->input) =~ /^Net::SinFP3::Input::Connect$/) {
+   if (ref($global->input) =~ /^Net::SinFP3::Input::Connect$/) {
       $o->[0] = $self->_rewriteTcpOptions($o->[0]);
+   }
+
+   # Specific for Next next object
+   if (ref($global->next) =~ /^Net::SinFP3::Next::Frame$/) {
+      $b = 'B.....';
    }
 
    return Net::SinFP3::Ext::S->new(
@@ -335,10 +343,16 @@ sub run {
       $self->_runOnline;
       $self->_analyzeResponses;
    }
+   elsif ($ref =~ /^Net::SinFP3::Next::Frame$/) {
+      $self->_ip->next($next);
+      $self->_tcp->next($next);
+      $self->_runOfflineFrame;
+      $self->_analyzeResponses;
+   }
    elsif ($ref =~ /^Net::SinFP3::Next::MultiFrame$/) {
       $self->_ip->next($next);
       $self->_tcp->next($next);
-      $self->_runOffline;
+      $self->_runOfflineMultiFrame;
       $self->_analyzeResponses;
    }
    elsif ($ref =~ /^Net::SinFP3::Next::Active$/) {
@@ -355,7 +369,20 @@ sub run {
 }
 
 # For offline analysis only: case Next::Frame
-sub _runOffline {
+sub _runOfflineFrame {
+   my $self = shift;
+
+   my $global = $self->global;
+   my $log    = $global->log;
+
+   $self->p2($global->next->frame);
+   $self->p2->reply($global->next->frame);
+
+   return 1;
+}
+
+# For offline analysis only: case Next::MultiFrame
+sub _runOfflineMultiFrame {
    my $self = shift;
 
    my $global = $self->global;

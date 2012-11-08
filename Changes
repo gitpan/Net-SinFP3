@@ -1,5 +1,8 @@
 Revision history for Perl extension Net::SinFP.
 
+1.02 Thu Nov  8 17:21:54 CET 2012
+   - new: Mode::Active can take a Next::Frame object
+
 1.01 Tue Oct 23 15:12:22 CEST 2012
    - new: -target parameter used for Input::ArpDiscover
    - update: set a User-Agent for -update-db

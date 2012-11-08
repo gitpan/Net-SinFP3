@@ -43,4 +43,4 @@ requires:
   Socket: 0
   Socket6: 0
   perl: 5.006001
-version: 1.01
+version: 1.02
