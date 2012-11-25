@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.PL 2186 2012-10-23 13:12:32Z gomor $
+# $Id: Makefile.PL 2198 2012-11-15 13:03:10Z gomor $
 #
 use ExtUtils::MakeMaker;
 
@@ -21,16 +21,18 @@ WriteMakefile(
       Frontier::Client        => 0,
       IO::Socket::INET        => 0,
       IO::Socket::INET6       => 0,
+      IO::Select              => 0,
       LWP::UserAgent          => 0,
       Net::Frame              => '1.07',
       Net::Frame::Device      => 0,
-      Net::Frame::Dump        => '1.09',
+      Net::Frame::Dump        => '1.12',
       Net::Frame::Layer::IPv6 => 0,
+      Net::Frame::Layer::SinFP3 => 0,
       Net::Frame::Simple      => 0,
       Net::Libdnet            => '0.90',
       Net::Netmask            => 0,
       Net::Write              => 0,
-      Net::Write::Fast        => '0.11',
+      Net::Write::Fast        => '0.14',
       Parallel::ForkManager   => 0,
       POSIX                   => 0,
       Socket                  => 0,

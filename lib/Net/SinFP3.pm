@@ -1,11 +1,11 @@
 #
-# $Id: SinFP3.pm 2188 2012-11-08 16:20:47Z gomor $
+# $Id: SinFP3.pm 2198 2012-11-15 13:03:10Z gomor $
 #
 package Net::SinFP3;
 use strict;
 use warnings;
 
-our $VERSION = '1.02';
+our $VERSION = '1.20';
 
 use base qw(Class::Gomor::Array);
 our @AS = qw(
@@ -97,56 +97,56 @@ sub _do {
 
    my $global = $self->global;
    my $log    = $global->log;
+   my $input  = $global->input;
    my $next   = $global->next;
+
+   $log->info("Starting of job with Next ".$next->print);
 
    my @db     = $self->db;
    my @mode   = $self->mode;
    my @search = $self->search;
    my @output = $self->output;
 
-   $log->debug("DB     module list: [@db]");
-   $log->debug("Mode   module list: [@mode]");
-   $log->debug("Search module list: [@search]");
-   $log->debug("Output module list: [@output]");
+   $input->postRun or return;
 
    for my $db (@db) {
-      $log->info("Starting of DB [".ref($db)."]");
+      $log->verbose("Starting of DB [".ref($db)."]");
       $global->db($db);
       $db->init or $log->fatal("Unable to init [".ref($db)."] module");
       $db->run or next;
-      $log->info("Running of DB [".ref($db)."]: Done");
+      $log->verbose("Running of DB [".ref($db)."]: Done");
       for my $mode (@mode) {
          $global->mode($mode);
 
          $log->verbose(
             "Running with Next: ".$next->print." with type [".ref($next)."]"
          );
-         $log->info("Starting of Mode [".ref($mode)."]");
+         $log->verbose("Starting of Mode [".ref($mode)."]");
          $mode->init or $log->fatal("Unable to init [".ref($mode)."] module");
          $mode->run or next;
-         $log->info("Running of Mode [".ref($mode)."]: Done");
+         $log->verbose("Running of Mode [".ref($mode)."]: Done");
 
          for my $search (@search) {
             $global->search($search);
 
-            $log->info("Starting of Search [".ref($search)."]");
+            $log->verbose("Starting of Search [".ref($search)."]");
             $search->init or $log->fatal("Unable to init [".ref($search).
                                          "] module");
             my $result = $search->run or next;
             $global->result($result);
-            $log->info("Running of Search [".ref($search)."]: Done");
+            $log->verbose("Running of Search [".ref($search)."]: Done");
 
             $mode->postSearch;
 
             for my $output (@output) {
                $global->output($output);
 
-               $log->info("Starting of Output [".ref($output)."]");
+               $log->verbose("Starting of Output [".ref($output)."]");
                $output->init or $log->fatal("Unable to init [".ref($output).
                                             "] module");
                $output->run or next;
                $output->post;
-               $log->info("Running of Output [".ref($output)."]: Done");
+               $log->verbose("Running of Output [".ref($output)."]: Done");
             }
             $search->post;
          }
@@ -199,6 +199,12 @@ sub run {
       global => $global,
    );
 
+   $log->info("Loaded Input:  ".join(', ', map { ref($_) } $self->input));
+   $log->info("Loaded DB:     ".join(', ', map { ref($_) } $self->db));
+   $log->info("Loaded Mode:   ".join(', ', map { ref($_) } $self->mode));
+   $log->info("Loaded Search: ".join(', ', map { ref($_) } $self->search));
+   $log->info("Loaded Output: ".join(', ', map { ref($_) } $self->output));
+
    my $job = 0;
    for my $input (@input) {
       $log->info("Starting of Input [".ref($input)."]");
@@ -220,21 +226,23 @@ sub run {
                },
             ) or $log->fatal("Unable to init [".ref($worker)."] module");
 
-            $log->info("Starting of job with Next ".$next->print);
-
             # We are just before fork()ing or thread()ing.
             # Now, all data will be copied to the new process.
             my $r = $worker->run;
-            next if $r == NS_WORKER_SUCCESS;
+            if ($r == NS_WORKER_SUCCESS) {
+               $input->postFork;
+               next;
+            }
 
-            $log->info("Running of job with Next [".$next->print."]: Done");
+            # Father process will skip that part
+            $log->verbose("Running of job with Next ".$next->print.": Done");
 
             $worker->post;
          }
       }
       $global->job(0);
       $input->post;
-      $log->info("Running of Input [".ref($input)."]: Done");
+      $log->verbose("Running of Input [".ref($input)."]: Done");
    }
 
    $worker->clean;

@@ -1,5 +1,5 @@
 #
-# $Id: Passive.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Passive.pm 2203 2012-11-18 14:56:59Z gomor $
 #
 package Net::SinFP3::Result::Passive;
 use strict;
@@ -23,6 +23,7 @@ our @AS = qw(
    os
    osVersion
    osVersionFamily
+   matchType
    matchMask
    matchScore
 );

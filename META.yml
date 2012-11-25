@@ -26,21 +26,23 @@ requires:
   File::Glob: 0
   FindBin: 0
   Frontier::Client: 0
+  IO::Select: 0
   IO::Socket::INET: 0
   IO::Socket::INET6: 0
   LWP::UserAgent: 0
   Net::Frame: 1.07
   Net::Frame::Device: 0
-  Net::Frame::Dump: 1.09
+  Net::Frame::Dump: 1.12
   Net::Frame::Layer::IPv6: 0
+  Net::Frame::Layer::SinFP3: 0
   Net::Frame::Simple: 0
   Net::Libdnet: 0.90
   Net::Netmask: 0
   Net::Write: 0
-  Net::Write::Fast: 0.11
+  Net::Write::Fast: 0.14
   POSIX: 0
   Parallel::ForkManager: 0
   Socket: 0
   Socket6: 0
   perl: 5.006001
-version: 1.02
+version: 1.20

@@ -1,5 +1,5 @@
 #
-# $Id: Active.pm 2188 2012-11-08 16:20:47Z gomor $
+# $Id: Active.pm 2194 2012-11-13 20:55:10Z gomor $
 #
 package Net::SinFP3::Mode::Active;
 use strict;
@@ -245,7 +245,7 @@ sub _allResponsesReceived {
    if (($self->doP1 && $self->p1->reply || !$self->doP1)
    &&  ($self->doP2 && $self->p2->reply || !$self->doP2)
    &&  ($self->doP3 && $self->p3->reply || !$self->doP3)) {
-      $self->global->log->info("All responses received");
+      $self->global->log->verbose("All responses received");
       return 1;
    }
    return;
@@ -374,9 +374,10 @@ sub _runOfflineFrame {
 
    my $global = $self->global;
    my $log    = $global->log;
+   my $next   = $global->next;
 
-   $self->p2($global->next->frame);
-   $self->p2->reply($global->next->frame);
+   $self->p2($next->frame);
+   $self->p2->reply($next->frame);
 
    return 1;
 }

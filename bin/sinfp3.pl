@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# $Id: sinfp3.pl 2183 2012-09-14 13:26:59Z gomor $
+# $Id: sinfp3.pl 2203 2012-11-18 14:56:59Z gomor $
 #
 use strict;
 use warnings;
@@ -35,8 +35,10 @@ GetOptions(
    "ip6-gateway=s"      => \$lopts{ip6_gateway},
    "mac-gateway=s"      => \$lopts{mac_gateway},
    "verbose=i"          => \$lopts{verbose},
+   "quiet"              => \$lopts{quiet},
    "threshold=i"        => \$lopts{threshold},
    "best-score"         => \$lopts{best_score},
+   "passive"            => \$lopts{passive},
 
    # Generic options
    "input=s"            => \$lopts{input},
@@ -60,6 +62,7 @@ GetOptions(
    "input-signature"   => \$lopts{input_signature},
    "input-signaturep"  => \$lopts{input_signaturep},
    "input-connect"     => \$lopts{input_connect},
+   "input-server"      => \$lopts{input_server},
    "mode-null"         => \$lopts{mode_null},
    "mode-active"       => \$lopts{mode_active},
    "mode-passive"      => \$lopts{mode_passive},
@@ -78,28 +81,56 @@ GetOptions(
    "output-osversionfamily" => \$lopts{output_osversionfamily},
    "output-pcap"            => \$lopts{output_pcap},
    "output-ubigraph"        => \$lopts{output_ubigraph},
+   "output-simple"          => \$lopts{output_simple},
+   "output-client"          => \$lopts{output_client},
 
    # Plugin-specific options
-   "db-update"         => \$lopts{db_update},
-   "db-file=s"         => \$lopts{db_file},
-   "sniff-promiscuous" => \$lopts{sniff_promiscuous},
-   "pcap-anonymize"    => \$lopts{pcap_anonymize},
-   "pcap-append"       => \$lopts{pcap_append},
-   "pcap-filter=s"     => \$lopts{pcap_filter},
-   "pcap-file=s"       => \$lopts{pcap_file},
-   "active-1"          => \$lopts{active_1},
-   "active-2"          => \$lopts{active_2},
-   "active-3"          => \$lopts{active_3},
-   "csv-file=s"        => \$lopts{csv_file},
+   "db-update"           => \$lopts{db_update},
+   "db-file=s"           => \$lopts{db_file},
+   "sniff-promiscuous"   => \$lopts{sniff_promiscuous},
+   "pcap-anonymize"      => \$lopts{pcap_anonymize},
+   "pcap-append"         => \$lopts{pcap_append},
+   "pcap-filter=s"       => \$lopts{pcap_filter},
+   "pcap-file=s"         => \$lopts{pcap_file},
+   "active-1"            => \$lopts{active_1},
+   "active-2"            => \$lopts{active_2},
+   "active-3"            => \$lopts{active_3},
+   "synscan-fingerprint" => \$lopts{synscan_fingerprint},
+   "csv-file=s"          => \$lopts{csv_file},
 
 ) or pod2usage(2);
 
 if ($lopts{version}) {
+   use Class::Gomor;
+   use DBD::SQLite;
+   use Net::Libdnet;
+   use Net::Frame;
+   use Net::Frame::Device;
+   use Net::Frame::Dump;
+   use Net::Frame::Layer::ICMPv6;
+   use Net::Frame::Layer::IPv6;
+   use Net::Frame::Layer::SinFP3;
+   use Net::Frame::Simple;
+   use Net::Write;
+   use Net::Write::Fast;
    print
       "\n  -- SinFP3 - $Net::SinFP3::VERSION --\n".
       "\n".
-      '   $Id: sinfp3.pl 2183 2012-09-14 13:26:59Z gomor $'."\n\n".
-      "";
+      '   $Id: sinfp3.pl 2203 2012-11-18 14:56:59Z gomor $'."\n".
+      "\n  -- Perl modules --\n\n".
+      "  o Class::Gomor              - $Class::Gomor::VERSION\n".
+      "  o DBD::SQLite               - $DBD::SQLite::VERSION\n".
+      "  o Net::Libdnet              - $Net::Libdnet::VERSION\n".
+      "  o Net::Frame                - $Net::Frame::VERSION\n".
+      "  o Net::Frame::Device        - $Net::Frame::Device::VERSION\n".
+      "  o Net::Frame::Dump          - $Net::Frame::Dump::VERSION\n".
+      "  o Net::Frame::Layer::ICMPv6 - $Net::Frame::Layer::ICMPv6::VERSION\n".
+      "  o Net::Frame::Layer::IPv6   - $Net::Frame::Layer::IPv6::VERSION\n".
+      "  o Net::Frame::Layer::SinFP3 - $Net::Frame::Layer::SinFP3::VERSION\n".
+      "  o Net::Frame::Simple        - $Net::Frame::Simple::VERSION\n".
+      "  o Net::Write                - $Net::Write::VERSION\n".
+      "  o Net::Write::Fast          - $Net::Write::Fast::VERSION\n".
+      "\n";
    exit(0);
 }
 elsif ($lopts{help}) {
@@ -115,6 +146,7 @@ use Net::SinFP3::Input::Null;
 use Net::SinFP3::Input::IpPort;
 use Net::SinFP3::Input::Pcap;
 use Net::SinFP3::Input::ArpDiscover;
+use Net::SinFP3::Input::Server;
 use Net::SinFP3::Input::SynScan;
 use Net::SinFP3::Input::Sniff;
 use Net::SinFP3::Input::Signature;
@@ -129,7 +161,9 @@ use Net::SinFP3::Search::Null;
 use Net::SinFP3::Search::Active;
 use Net::SinFP3::Search::Passive;
 use Net::SinFP3::Output::Null;
+use Net::SinFP3::Output::Client;
 use Net::SinFP3::Output::Console;
+use Net::SinFP3::Output::Simple;
 use Net::SinFP3::Output::CSV;
 use Net::SinFP3::Output::Dumper;
 use Net::SinFP3::Output::OsOnly;
@@ -144,13 +178,17 @@ $lopts{dns_resolve} ||= 1;
 $lopts{dns_reverse} ||= 0;
 $lopts{thread}      ||= 0;
 $lopts{retry}       ||= 3;
-$lopts{timeout}     ||= 5;
+$lopts{timeout}     ||= 3;
 $lopts{pps}         ||= 300;
-$lopts{verbose}     ||= 0;
 $lopts{port}        ||= 'top10';
 $lopts{port_src}    ||= 53;
 $lopts{threshold}   ||= 70;
 $lopts{best_score}  ||= 0;
+$lopts{verbose}     ||= 1;
+$lopts{passive}     ||= 0;
+if ($lopts{quiet}) {
+   $lopts{verbose} = 0;
+}
 
 # Set default plugin options
 $lopts{input_synscan}  ||= 1;
@@ -158,14 +196,15 @@ $lopts{mode_active}    ||= 1;
 $lopts{db_sinfp3}      ||= 1;
 $lopts{search_active}  ||= 1;
 $lopts{log_console}    ||= 1;
-$lopts{output_console} ||= 1;
+$lopts{output_simple}  ||= 1;
 
 # Set default plugin-specific values
-$lopts{db_update}         ||= 0;
-$lopts{sniff_promiscuous} ||= 1;
-$lopts{pcap_anonymize}    ||= 0;
-$lopts{pcap_append}       ||= 0;
-$lopts{csv_file}          ||= 'sinfp3-output.csv';
+$lopts{db_update}           ||= 0;
+$lopts{sniff_promiscuous}   ||= 1;
+$lopts{pcap_anonymize}      ||= 0;
+$lopts{pcap_append}         ||= 0;
+$lopts{synscan_fingerprint} ||= 0;
+$lopts{csv_file}            ||= 'sinfp3-output.csv';
 
 #
 # Prepare log module
@@ -335,6 +374,11 @@ elsif ($lopts{input_connect}) {
       port   => $lopts{port},
    ) or exit(1);
 }
+elsif ($lopts{input_server}) {
+   push @input, Net::SinFP3::Input::Server->new(
+      global => $global,
+   ) or exit(1);
+}
 elsif ($lopts{input_pcap}) {
    if (! $lopts{pcap_file}) {
       $log->fatal("You must provide -pcap-file argument");
@@ -362,9 +406,10 @@ elsif ($lopts{input_synscan}) {
                   "or try -help for usage");
    }
    push @input, Net::SinFP3::Input::SynScan->new(
-      global => $global,
-      ip     => $lopts{target},
-      port   => $lopts{port},
+      global      => $global,
+      ip          => $lopts{target},
+      port        => $lopts{port},
+      fingerprint => $lopts{synscan_fingerprint},
    ) or exit(1);
 }
 
@@ -406,9 +451,19 @@ elsif ($lopts{output_ubigraph}) {
       file   => $lopts{csv_file},
    ) or exit(1);
 }
-# Default
 elsif ($lopts{output_console}) {
    push @output, Net::SinFP3::Output::Console->new(
+      global => $global,
+   ) or exit(1);
+}
+elsif ($lopts{output_client}) {
+   push @output, Net::SinFP3::Output::Client->new(
+      global => $global,
+   ) or exit(1);
+}
+# Default
+elsif ($lopts{output_simple}) {
+   push @output, Net::SinFP3::Output::Simple->new(
       global => $global,
    ) or exit(1);
 }
@@ -432,7 +487,7 @@ elsif ($lopts{mode_null}) {
       global => $global,
    ) or exit(1);
 }
-elsif ($lopts{mode_passive}) {
+elsif ($lopts{mode_passive} || $lopts{passive}) {
    push @mode, Net::SinFP3::Mode::Passive->new(
       global => $global,
    ) or exit(1);
@@ -471,7 +526,7 @@ elsif ($lopts{search_null}) {
       global => $global,
    ) or exit(1);
 }
-elsif ($lopts{search_passive}) {
+elsif ($lopts{search_passive} || $lopts{passive}) {
    push @search, Net::SinFP3::Search::Passive->new(
       global => $global,
    ) or exit(1);
@@ -535,34 +590,34 @@ sinfp3.pl [options] -target ip|ip6|hostname -port port|portList
 Examples:
 
    # Single port active fingerprinting
-   sinfp3.pl -target example.com -port 80 -input-ipport -verbose 1
+   sinfp3.pl -target example.com -port 80 -input-ipport
 
    # Single port IPv6 active fingerprinting
-   sinfp3.pl -target example.com -port 80 -input-ipport -verbose 1 -6
+   sinfp3.pl -target example.com -port 80 -input-ipport -6
 
    # SynScan active fingerprinting of a single target
-   sinfp3.pl -target example.com -port top100 -verbose 1
+   sinfp3.pl -target example.com -port top100
 
    # SynScan IPv6 active fingerprinting of a single target
-   sinfp3.pl -target example.com -port top100 -verbose 1 -6
+   sinfp3.pl -target example.com -port top100 -6
 
    # SynScan active fingerprinting of a target subnet
-   sinfp3.pl -target 192.0.43.0/24 -port top100 -verbose 1
+   sinfp3.pl -target 192.0.43.0/24 -port top100
 
    # Passive fingerprinting
-   sinfp3.pl -mode-passive -search-active -input-sniff -verbose 1
+   sinfp3.pl -mode-passive -search-active -input-sniff
 
    # Passive IPv6 fingerprinting
-   sinfp3.pl -mode-passive -search-active -input-sniff -verbose 1 -6
+   sinfp3.pl -mode-passive -search-active -input-sniff -6
 
    # Active fingerprinting of LAN
-   sinfp3.pl -input-arpdiscovery -verbose 1
+   sinfp3.pl -input-arpdiscovery
 
    # Active fingerprinting of IPv6 LAN
-   sinfp3.pl -input-arpdiscovery -verbose 1 -6
+   sinfp3.pl -input-arpdiscovery -6
 
    # Simply SynScan the target
-   sinfp3.pl -target example.com -port full -mode-null -search-null -db-null -verbose 1
+   sinfp3.pl -target example.com -port full -mode-null -search-null -db-null
 
 =head1 OPTIONS
 
@@ -591,6 +646,10 @@ Target port. Default for top10 ports for plugins able to handle multiple ports. 
 =item B<-port-src> port
 
 Source port to use. Not supported by all plugins.
+
+=item B<-passive>
+
+Use passive fingerprinting. Default to use active one.
 
 =item B<-6>
 
@@ -664,6 +723,10 @@ The gateway MAC address to use. Default to auto-detect.
 
 Use the following verbose level number. Between 0 and 3, from the less verbose to the most verbose. Default to 1.
 
+=item B<-quiet>
+
+Set verbose level to 0. Default to not.
+
 =item B<-threshold> score
 
 Use the specified threshold for plugins supporting it. Default to no threshold (0).
@@ -733,107 +796,123 @@ Parameter to the specified output plugin. Must use multiple times to give multip
 
 =over 8
 
-=item B<input-null>
+=item B<-input-null>
 
 Turn off input plugin.
 
-=item B<input-arpdiscover>
+=item B<-input-arpdiscover>
 
 Use ARP scanning on the local subnet to discover targets. Works also with B<-6> argument.
 
-=item B<input-pcap>
+=item B<-input-pcap>
 
 Take a pcap file (or files) as input.
 
-=item B<input-synscan>
+=item B<-input-synscan>
 
 Perform a TCP SYN scan to find open ports. Default plugin.
 
-=item B<input-ipport>
+=item B<-input-ipport>
 
 Use only target IP or hostname and one port.
 
-=item B<input-sniff>
+=item B<-input-sniff>
 
 Listen on the network to capture frames.
 
-=item B<input-signature>
+=item B<-input-signature>
 
 Will ask the end-user to past an active signature as a string.
 
-=item B<input-signaturep>
+=item B<-input-signaturep>
 
 Will ask the end-user to past a passive signature as a string.
 
-=item B<mode-null>
+=item B<-input-connect>
+
+Performs a standard TCP connect() and sends a "GET /HTTP/1.0". Then, it analyzes the SYN|ACK response to perform active fingerprinting.
+
+=item B<-input-server>
+
+Starts a SinFP3 server on localhost:32000, so clients speaking the SinFP3 API will be able to access the fingerprinrint engine.
+
+=item B<-mode-null>
 
 Turn off mode plugin.
 
-=item B<mode-active>
+=item B<-mode-active>
 
 Run using active plugin. This does active OS fingerprinting via SinFP3 engine.
 
-=item B<mode-passive>
+=item B<-mode-passive>
 
 Run using passive plugin. This does passive OS fingerprinting via SinFP3 engine.
 
-=item B<db-null>
+=item B<-db-null>
 
 Turn off DB plugin.
 
-=item B<db-sinfp3>
+=item B<-db-sinfp3>
 
 Use B<Net::SinFP3::DB::SinFP3> database plugin. Default plugin.
 
-=item B<search-null>
+=item B<-search-null>
 
 Turn off search plugin.
 
-=item B<search-active>
+=item B<-search-active>
 
 Perform a search through a database in active mode. Default plugin.
 
-=item B<search-passive>
+=item B<-search-passive>
 
 Perform a search through a database in passive mode.
 
-=item B<log-null>
+=item B<-log-null>
 
 Turn off log plugin.
 
-=item B<log-console>
+=item B<-log-console>
 
 Log messages to the console. Default plugin.
 
-=item B<output-null>
+=item B<-output-null>
 
 Turn off output plugin.
 
-=item B<output-console>
+=item B<-output-console>
 
-Render output to the console. Default plugin.
+Render output to the console with many details.
 
-=item B<output-dumper>
+=item B<-output-client>
+
+Render output to the connected client using SinFP3 communication protocol.
+
+=item B<-output-simple>
+
+Render output to the console, in a simple way. Default plugin.
+
+=item B<-output-dumper>
 
 Prints a dump to the console.
 
-=item B<output-osonly>
+=item B<-output-osonly>
 
 Only outputs operating system, and not full details of the fingerprint.
 
-=item B<output-osversionfamily>
+=item B<-output-osversionfamily>
 
 Only outputs operating system and its version family, and not full details of the fingerprint.
 
-=item B<output-pcap>
+=item B<-output-pcap>
 
 Saves a trace to a pcap file. You can reply it afterwards using B<Net::SinFP3::Input::Pcap>.
 
-=item B<output-csv>
+=item B<-output-csv>
 
 Saves fingerprinting results a csv file. You can use L<-csv-file> to choose the output file.
 
-=item B<output-ubigraph>
+=item B<-output-ubigraph>
 
 Takes a CSV file and display results using Ubigraph. You must use a CSV file as generated by B<Net::SinFP3::Output::CSV>. You can use L<-csv-file> to choose the input file.
 
@@ -890,6 +969,10 @@ Run only probes P1 and P2 in active mode (stealthier).
 =item B<-active-1>
 
 Run only probe P2 in active mode (even stealthier).
+
+=item B<-synscan-fingerprint>
+
+Do not perform classic 3 packets fingerprinting, just use the SYN|ACK reply from the SYN request for fingerprinting.
 
 =back
 

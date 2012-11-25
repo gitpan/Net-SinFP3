@@ -1,5 +1,5 @@
 #
-# $Id: Pcap.pm 2165 2012-09-11 07:49:58Z gomor $
+# $Id: Pcap.pm 2194 2012-11-13 20:55:10Z gomor $
 #
 package Net::SinFP3::Output::Pcap;
 use strict;
@@ -113,12 +113,19 @@ sub run {
    my $global  = $self->global;
    my $log     = $global->log;
    my $mode    = $global->mode;
+   my $input   = $global->input;
    my $next    = $global->next;
    my @results = $global->result;
 
    # We do not output a pcap file if the port is in error
    if ($results[0] =~ /Net::SinFP3::Result::PortError/) {
       $log->info("Port is in error, skipping");
+      return 1;
+   }
+
+   # We do not output a pcap file in Input::SynScan with fingerprint
+   if (ref($input) =~ /Net::SinFP3::Input::SynScan/ && $input->fingerprint) {
+      $log->info("No pcap saving while -synscan-fingerprint option in use");
       return 1;
    }
 

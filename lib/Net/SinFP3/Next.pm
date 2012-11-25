@@ -1,5 +1,5 @@
 #
-# $Id: Next.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Next.pm 2198 2012-11-15 13:03:10Z gomor $
 #
 package Net::SinFP3::Next;
 use strict;

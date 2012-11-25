@@ -1,5 +1,5 @@
 #
-# $Id: Unknown.pm 2139 2012-08-30 17:24:19Z gomor $
+# $Id: Unknown.pm 2204 2012-11-18 15:27:33Z gomor $
 #
 package Net::SinFP3::Result::Unknown;
 use strict;
@@ -12,7 +12,6 @@ our @AS = qw(
    hostname
    reverse
    frame
-   origTcpFlags
    sp
    s1
    s2
@@ -64,18 +63,7 @@ sub printSignature {
          my $frame = $self->frame;
          my $ip    = $frame->ref->{IPv4} || $frame->ref->{IPv6};
          $buf     .= $ip->src.':'.$frame->ref->{TCP}->src.' > '.
-                     $ip->dst.':'.$frame->ref->{TCP}->dst;
-
-         my $flags = $self->origTcpFlags;
-         if ($flags == 0x12) {
-            $buf .= " [SYN|ACK]\n";
-         }
-         elsif ($flags == 0x02) {
-            $buf .= " [SYN]\n";
-         }
-         else {
-            $buf .= sprintf(" [0x%02x]\n", $flags);
-         }
+                     $ip->dst.':'.$frame->ref->{TCP}->dst."\n";
       }
 
       $buf .= 'SP: '.$self->sp->print;

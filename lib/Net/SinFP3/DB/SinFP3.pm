@@ -1,5 +1,5 @@
 #
-# $Id: SinFP3.pm 2186 2012-10-23 13:12:32Z gomor $
+# $Id: SinFP3.pm 2201 2012-11-18 12:59:19Z gomor $
 #
 package Net::SinFP3::DB::SinFP3;
 use strict;
@@ -568,6 +568,8 @@ sub update {
    else {
       $log->fatal("GET [$url]: ". $db->status_line);
    }
+
+   return 1;
 }
 
 1;

@@ -1,5 +1,5 @@
 #
-# $Id: Sniff.pm 2172 2012-09-12 12:48:37Z gomor $
+# $Id: Sniff.pm 2194 2012-11-13 20:55:10Z gomor $
 #
 package Net::SinFP3::Input::Sniff;
 use strict;
@@ -50,9 +50,8 @@ sub init {
    }
 
    my $oDump = $global->getDumpOnline(
-      promisc       => $self->promisc,
-      filter        => $self->filter,
-      timeoutOnNext => 0,
+      promisc => $self->promisc,
+      filter  => $self->filter,
    ) or return;
    $oDump->start or return;
 

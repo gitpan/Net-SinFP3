@@ -27,11 +27,13 @@ DEPENDENCIES
    Frontier::Client
    IO::Socket::INET
    IO::Socket::INET6
+   IO::Select
    LWP::UserAgent
    Net::Frame
    Net::Frame::Device
    Net::Frame::Dump
    Net::Frame::Layer::IPv6
+   Net::Frame::Layer::SinFP3
    Net::Frame::Simple
    Net::Libdnet
    Net::Netmask

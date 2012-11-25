@@ -1,5 +1,5 @@
 #
-# $Id: SynScan.pm 2156 2012-08-31 12:51:39Z gomor $
+# $Id: SynScan.pm 2194 2012-11-13 20:55:10Z gomor $
 #
 package Net::SinFP3::Input::SynScan;
 use strict;
@@ -10,7 +10,7 @@ our @AS = qw(
    ip
    port
    hostname
-   reverse
+   fingerprint
    _eth
    _subnet
 );
@@ -31,15 +31,16 @@ use Net::Frame::Simple;
 sub give {
    return [
       'Net::SinFP3::Next::IpPort',
+      'Net::SinFP3::Next::Frame',
    ];
 }
 
 sub new {
    my $self = shift->SUPER::new(
-      hostname => 'unknown',
-      reverse  => 'unknown',
-      nextList => [],
-      port     =>
+      hostname    => 'unknown',
+      fingerprint => 0,
+      nextList    => [],
+      port        =>
    '1-1024,1025-1027,1029-1033,1040,1050,1058,1059,1067,1068,1076,1080,1083,'.
    '1084,1103,1109,1110,1112,1127,1139,1155,1178,1212,1214,1220,1222,1234,'.
    '1241,1248,1337,1346-1381,1383-1552,1600,1650-1652,1661-1672,1680,1720,'.
@@ -89,12 +90,6 @@ sub new {
          my $ip = $global->getHostAddr(host => $self->ip) or return;
          $self->ip($ip);
       }
-
-      if ($global->dnsReverse) {
-         $self->reverse(
-            $global->getAddrReverse(addr => $self->ip) || 'unknown'
-         );
-      }
    }
 
    return $self;
@@ -104,23 +99,32 @@ sub _addToResult {
    my $self = shift;
    my ($f) = @_;
 
-   my $eth = $f->ref->{ETH};
-   my $ip  = $f->ref->{IPv4} || $f->ref->{IPv6};
-   my $tcp = $f->ref->{TCP};
+   my $global = $self->global;
 
-   my $res;
-   if ($ip && $tcp) {
-      $res = Net::SinFP3::Next::IpPort->new(
-         global   => $self->global,
-         ip       => $ip->src,
-         port     => $tcp->src,
-         hostname => $self->hostname,
-         reverse  => $self->reverse,
-      ) or return;
-      if ($eth) {
-         $res->mac($eth->src);
+   if ($self->fingerprint) {
+      return Net::SinFP3::Next::Frame->new(
+         global => $global,
+         frame  => $f,
+      );
+   }
+   else {
+      my $eth = $f->ref->{ETH};
+      my $ip  = $f->ref->{IPv4} || $f->ref->{IPv6};
+      my $tcp = $f->ref->{TCP};
+
+      my $res;
+      if ($ip && $tcp) {
+         $res = Net::SinFP3::Next::IpPort->new(
+            global   => $global,
+            ip       => $ip->src,
+            port     => $tcp->src,
+            hostname => $self->hostname,
+         ) or return;
+         if ($eth) {
+            $res->mac($eth->src);
+         }
+         return $res;
       }
-      return $res;
    }
 
    return;
@@ -180,9 +184,6 @@ sub init {
    my $retry    = $global->retry;
    my $pps      = $global->pps;
 
-   # Estimate number of seconds to run
-   my $seconds = $global->retry * $nReq * $nTargets / $pps;
-
    my $ipv6 = $global->ipv6;
    my $ip   = $global->ip;
    my $ip6  = $global->ip6;
@@ -222,7 +223,7 @@ sub init {
                my $res = $self->_addToResult($s) or next;
                my @old = $self->nextList;
                $self->nextList([ @old, $res ]);
-               $log->info("Found ".$res->print);
+               $log->verbose("Found ".$res->print);
                $skip{$ip->src}{$tcp->src}++;
             }
             elsif ($tcp->flags == 0x14) { # RST+ACK
@@ -232,12 +233,13 @@ sub init {
          $nRep++;
       }
       if ($oDump->timeout) {
-         #print STDERR "DEBUG: timeout\n";
+         $log->debug("Timeout occured");
          # If $pid has exited and a timeout has occured
          # waitpid returns 0 if process is running, -1 if stopped, and $pid at
          # first waitpid invocation since process exited.
          my $r = waitpid($pid, WNOHANG);
          last if $r != -1 && $r != 0;
+         $log->debug("Timeout occured, but SYN send not finished");
          $oDump->timeoutReset;
       }
    }

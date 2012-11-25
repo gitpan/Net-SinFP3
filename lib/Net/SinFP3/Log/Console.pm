@@ -1,5 +1,5 @@
 #
-# $Id: Console.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Console.pm 2208 2012-11-22 19:10:18Z gomor $
 #
 package Net::SinFP3::Log::Console;
 use strict;
@@ -35,7 +35,7 @@ sub fatal {
    my ($msg) = @_;
    my ($package) = caller();
    my $job = defined($self->global) ? $self->global->job : 0;
-   die("[-] [J:$job] $package: $msg\n");
+   die("[-] [J:$job] FATAL: $package: $msg\n");
 }
 
 sub info {

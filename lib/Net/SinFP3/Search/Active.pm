@@ -1,5 +1,5 @@
 #
-# $Id: Active.pm 2180 2012-09-13 12:08:52Z gomor $
+# $Id: Active.pm 2194 2012-11-13 20:55:10Z gomor $
 #
 package Net::SinFP3::Search::Active;
 use strict;
@@ -614,6 +614,7 @@ sub _buildResultList {
    my $global = $self->global;
    my $log    = $global->log;
    my $db     = $global->db;
+   my $next   = $global->next;
 
    my @resultList = ();
    for my $mask (keys %$result) {
@@ -737,12 +738,28 @@ sub run {
    }
 
    # Fill IP/port attributes if available
-   if ($mode->p2) {
-      my $ip  = $mode->p2->ref->{IPv4} || $mode->p2->ref->{IPv6};
-      my $tcp = $mode->p2->ref->{TCP};
+   if ($mode->p2 && $mode->p2->reply) {
+      my $reply = $mode->p2->reply;
+      my $ip    = $reply->ref->{IPv4} || $reply->ref->{IPv6};
+      my $tcp   = $reply->ref->{TCP};
+      for my $r (@$result) {
+         $r->ip($ip->src);
+         $r->port($tcp->src);
+         if ($global->dnsReverse) {
+            $r->reverse($global->getAddrReverse(addr => $r->ip) || 'unknown');
+         }
+      }
+   }
+   elsif ($mode->p2) {
+      my $p2  = $mode->p2;
+      my $ip  = $p2->ref->{IPv4} || $p2->ref->{IPv6};
+      my $tcp = $p2->ref->{TCP};
       for my $r (@$result) {
          $r->ip($ip->dst);
          $r->port($tcp->dst);
+         if ($global->dnsReverse) {
+            $r->reverse($global->getAddrReverse(addr => $r->ip) || 'unknown');
+         }
       }
    }
 

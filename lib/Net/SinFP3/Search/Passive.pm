@@ -1,5 +1,5 @@
 #
-# $Id: Passive.pm 2180 2012-09-13 12:08:52Z gomor $
+# $Id: Passive.pm 2203 2012-11-18 14:56:59Z gomor $
 #
 package Net::SinFP3::Search::Passive;
 use strict;
@@ -392,6 +392,7 @@ sub _buildResultList {
             os              => $sig->{os},
             osVersion       => $sig->{osVersion},
             osVersionFamily => $sig->{osVersionFamily},
+            matchType       => 'P2',
             matchMask       => $mask,
             osVersionChildrenList => $db->getOsVersionChildrenPList(
                $id,
@@ -430,8 +431,16 @@ sub run {
 
    # Fill frame attribute if available
    if ($mode->frame) {
+      my $f   = $mode->frame;
+      my $ip  = $f->ref->{IPv4} || $f->ref->{IPv6};
+      my $tcp = $f->ref->{TCP};
       for my $r (@$result) {
          $r->frame($mode->frame);
+         $r->ip($ip->dst);
+         $r->port($tcp->dst);
+         if ($global->dnsReverse) {
+            $r->reverse($global->getAddrReverse(addr => $r->ip) || 'unknown');
+         }
       }
    }
 

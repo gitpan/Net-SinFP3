@@ -1,5 +1,5 @@
 #
-# $Id: Null.pm 2141 2012-08-30 17:25:24Z gomor $
+# $Id: Null.pm 2208 2012-11-22 19:10:18Z gomor $
 #
 package Net::SinFP3::Log::Null;
 use strict;
@@ -52,7 +52,7 @@ __END__
 
 =head1 NAME
 
-Net::SinFP3::Log::Null - no loggingconsole
+Net::SinFP3::Log::Null - disable logging
 
 =head1 SYNOPSIS
 

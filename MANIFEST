@@ -2,7 +2,10 @@ bin/sinfp3.db
 bin/sinfp3.pl
 Changes
 db-schema.dot
+examples/sinfp3-decode-netcat.pl
 examples/sinfp3-mode-active.pl
+examples/sinfp3-request-invalid.pl
+examples/sinfp3-request-passive-netcat.pl
 lib/Net/SinFP3/DB/Null.pm
 lib/Net/SinFP3/DB.pm
 lib/Net/SinFP3/DB/SinFP3.pm
@@ -19,6 +22,7 @@ lib/Net/SinFP3/Input/IpPort.pm
 lib/Net/SinFP3/Input/Null.pm
 lib/Net/SinFP3/Input/Pcap.pm
 lib/Net/SinFP3/Input.pm
+lib/Net/SinFP3/Input/Server.pm
 lib/Net/SinFP3/Input/Signature.pm
 lib/Net/SinFP3/Input/SignatureP.pm
 lib/Net/SinFP3/Input/Sniff.pm
@@ -31,12 +35,14 @@ lib/Net/SinFP3/Mode/Null.pm
 lib/Net/SinFP3/Mode/Passive.pm
 lib/Net/SinFP3/Mode.pm
 lib/Net/SinFP3/Next/Active.pm
+lib/Net/SinFP3/Next/Client.pm
 lib/Net/SinFP3/Next/Frame.pm
 lib/Net/SinFP3/Next/IpPort.pm
 lib/Net/SinFP3/Next/MultiFrame.pm
 lib/Net/SinFP3/Next/Null.pm
 lib/Net/SinFP3/Next/Passive.pm
 lib/Net/SinFP3/Next.pm
+lib/Net/SinFP3/Output/Client.pm
 lib/Net/SinFP3/Output/Console.pm
 lib/Net/SinFP3/Output/CSV.pm
 lib/Net/SinFP3/Output/Dumper.pm
@@ -44,6 +50,7 @@ lib/Net/SinFP3/Output/Null.pm
 lib/Net/SinFP3/Output/OsOnly.pm
 lib/Net/SinFP3/Output/OsVersionFamily.pm
 lib/Net/SinFP3/Output/Pcap.pm
+lib/Net/SinFP3/Output/Simple.pm
 lib/Net/SinFP3/Output.pm
 lib/Net/SinFP3/Output/Ubigraph.pm
 lib/Net/SinFP3/Plugin.pm

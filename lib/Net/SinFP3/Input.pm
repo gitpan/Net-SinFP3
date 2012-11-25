@@ -1,5 +1,5 @@
 #
-# $Id: Input.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Input.pm 2198 2012-11-15 13:03:10Z gomor $
 #
 package Net::SinFP3::Input;
 use strict;
@@ -44,7 +44,17 @@ sub run {
    return $self;
 }
 
+sub postRun {
+   my $self = shift;
+   return $self;
+}
+
 sub post {
+   my $self = shift;
+   return $self;
+}
+
+sub postFork {
    my $self = shift;
    return $self;
 }
@@ -101,11 +111,19 @@ Do some initialization by writing this method.
 
 To use when you are ready to launch the main loop.
 
+=item B<postRun> ()
+
+Method will be run within the jobbed process (after fork or equivalent).
+
 =item B<post> ()
 
 Do some cleanup by writing this method. B<post> is run at the very end of main B<Net::SinFP3> loop postlude. The exact order is:
 
    output->post > search->post > mode->post > db->post > input->post
+
+=item B<postFork> ()
+
+Method will be run in the parent jobbed process (after fork or equivalent).
 
 =back
 
