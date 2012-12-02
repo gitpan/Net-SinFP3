@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# $Id: sinfp3.pl 2203 2012-11-18 14:56:59Z gomor $
+# $Id: sinfp3.pl 2214 2012-12-02 14:38:04Z gomor $
 #
 use strict;
 use warnings;
@@ -19,7 +19,6 @@ GetOptions(
    "port-src=i"         => \$lopts{port_src},
    "6"                  => \$lopts{6},
    "jobs=i"             => \$lopts{jobs},
-   "dns-resolve"        => \$lopts{dns_resolve},
    "dns-reverse"        => \$lopts{dns_reverse},
    "device=s"           => \$lopts{device},
    "thread"             => \$lopts{thread},
@@ -112,11 +111,10 @@ if ($lopts{version}) {
    use Net::Frame::Layer::SinFP3;
    use Net::Frame::Simple;
    use Net::Write;
-   use Net::Write::Fast;
    print
       "\n  -- SinFP3 - $Net::SinFP3::VERSION --\n".
       "\n".
-      '   $Id: sinfp3.pl 2203 2012-11-18 14:56:59Z gomor $'."\n".
+      '   $Id: sinfp3.pl 2214 2012-12-02 14:38:04Z gomor $'."\n".
       "\n  -- Perl modules --\n\n".
       "  o Class::Gomor              - $Class::Gomor::VERSION\n".
       "  o DBD::SQLite               - $DBD::SQLite::VERSION\n".
@@ -129,7 +127,6 @@ if ($lopts{version}) {
       "  o Net::Frame::Layer::SinFP3 - $Net::Frame::Layer::SinFP3::VERSION\n".
       "  o Net::Frame::Simple        - $Net::Frame::Simple::VERSION\n".
       "  o Net::Write                - $Net::Write::VERSION\n".
-      "  o Net::Write::Fast          - $Net::Write::Fast::VERSION\n".
       "\n";
    exit(0);
 }
@@ -174,7 +171,6 @@ use Net::SinFP3::Output::Ubigraph;
 # Set global default values
 $lopts{6}           ||= 0;
 $lopts{jobs}        ||= 10;
-$lopts{dns_resolve} ||= 1;
 $lopts{dns_reverse} ||= 0;
 $lopts{thread}      ||= 0;
 $lopts{retry}       ||= 3;
@@ -233,7 +229,6 @@ my %args = (
    log        => $log,
    worker     => $worker,
    ipv6       => $lopts{6},
-   dnsResolve => $lopts{dns_resolve},
    dnsReverse => $lopts{dns_reverse},
    jobs       => $lopts{jobs},
    retry      => $lopts{retry},
@@ -336,14 +331,11 @@ elsif ($lopts{input_ipport}) {
    }
    push @input, Net::SinFP3::Input::IpPort->new(
       global => $global,
-      ip     => $lopts{target},
-      port   => $lopts{port},
    ) or exit(1);
 }
 elsif ($lopts{input_arpdiscover}) {
    push @input, Net::SinFP3::Input::ArpDiscover->new(
       global => $global,
-      port   => $lopts{port},
    ) or exit(1);
 }
 elsif ($lopts{input_sniff}) {
@@ -370,8 +362,6 @@ elsif ($lopts{input_connect}) {
    }
    push @input, Net::SinFP3::Input::Connect->new(
       global => $global,
-      ip     => $lopts{target},
-      port   => $lopts{port},
    ) or exit(1);
 }
 elsif ($lopts{input_server}) {
@@ -406,9 +396,7 @@ elsif ($lopts{input_synscan}) {
                   "or try -help for usage");
    }
    push @input, Net::SinFP3::Input::SynScan->new(
-      global      => $global,
-      ip          => $lopts{target},
-      port        => $lopts{port},
+      global => $global,
       fingerprint => $lopts{synscan_fingerprint},
    ) or exit(1);
 }
@@ -509,6 +497,11 @@ elsif ($lopts{mode_active}) {
    }
    elsif ($lopts{active_1}) {
       $args{doP1} = 0;
+      $args{doP2} = 1;
+      $args{doP3} = 0;
+   }
+   else {  # Default for -active-2
+      $args{doP1} = 1;
       $args{doP2} = 1;
       $args{doP3} = 0;
    }
@@ -658,10 +651,6 @@ Use IPv6 fingerprinting where available. Default to off.
 =item B<-jobs> number
 
 Maximum number of jobs in parallel. Default: 10.
-
-=item B<-dns-resolve>
-
-Do DNS resolution for target. Default to yes.
 
 =item B<-dns-reverse>
 

@@ -38,11 +38,11 @@ DEPENDENCIES
    Net::Libdnet
    Net::Netmask
    Net::Write
-   Net::Write::Fast
    Parallel::ForkManager
    POSIX
    Socket
    Socket6
+   Time::Interval
 
 COPYRIGHT AND LICENSE
 

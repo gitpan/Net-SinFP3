@@ -1,5 +1,5 @@
 #
-# $Id: Thread.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Thread.pm 2218 2012-12-02 16:38:53Z gomor $
 #
 package Net::SinFP3::Worker::Thread;
 use strict;
@@ -14,17 +14,18 @@ __PACKAGE__->cgBuildAccessorsScalar(\@AS);
 
 use Net::SinFP3::Worker qw(:consts);
 
-use Config;
-
 BEGIN {
-   if ($Config{useithreads}) {
-      use threads;
-      use Thread::Semaphore;
+   use Config;
+
+   if (defined($Config{useithreads})) {
+      eval "use threads";
+      eval "use Thread::Semaphore";
    }
    else {
-      die("[-] ".__PACKAGE__.": Thread-based worker mode not supported by ".
-          "your version of Perl. Recompile Perl with threads to run this ".
-          "program or use fork-based worker model.\n");
+      warn("[-] ".__PACKAGE__.": Thread-based worker mode not supported by ".
+           "your version of Perl. Recompile Perl with threads to run this ".
+           "program or use fork-based worker model.\n");
+      return;
    }
 }
 

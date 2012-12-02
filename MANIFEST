@@ -50,8 +50,8 @@ lib/Net/SinFP3/Output/Null.pm
 lib/Net/SinFP3/Output/OsOnly.pm
 lib/Net/SinFP3/Output/OsVersionFamily.pm
 lib/Net/SinFP3/Output/Pcap.pm
-lib/Net/SinFP3/Output/Simple.pm
 lib/Net/SinFP3/Output.pm
+lib/Net/SinFP3/Output/Simple.pm
 lib/Net/SinFP3/Output/Ubigraph.pm
 lib/Net/SinFP3/Plugin.pm
 lib/Net/SinFP3.pm
@@ -72,6 +72,7 @@ LICENSE.Artistic
 Makefile.PL
 MANIFEST
 README
+SinFP3.xs
 t/01-use.t
 t/02-pod-coverage.t
 t/03-test-pod.t

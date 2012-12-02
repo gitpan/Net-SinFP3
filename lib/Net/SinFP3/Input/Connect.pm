@@ -1,5 +1,5 @@
 #
-# $Id: Connect.pm 2170 2012-09-11 15:49:55Z gomor $
+# $Id: Connect.pm 2214 2012-12-02 14:38:04Z gomor $
 #
 package Net::SinFP3::Input::Connect;
 use strict;
@@ -7,10 +7,6 @@ use warnings;
 
 use base qw(Net::SinFP3::Input);
 our @AS = qw(
-   ip
-   port
-   hostname
-   reverse
    data
    _dump
 );
@@ -27,35 +23,28 @@ sub give {
 
 sub new {
    my $self = shift->SUPER::new(
-      hostname => 'unknown',
-      reverse  => 'unknown',
-      data     => "GET / HTTP/1.0\r\n\r\n",
+      data => "GET / HTTP/1.0\r\n\r\n",
       @_,
    );
 
    my $global = $self->global;
    my $log    = $global->log;
 
-   if (!defined($self->ip)) {
-      $log->fatal("You must provide ip attribute");
-   }
-   if (!defined($self->port)) {
-      $log->fatal("You must provide port attribute");
+   if (! defined($global->target)) {
+      $log->fatal("You must provide `target' attribute in Global object");
    }
 
-   my $port = $self->port;
+   if (! defined($global->port)) {
+      $log->fatal("You must provide `port' attribute in Global object");
+   }
+
+   my $port = $global->port;
    if ($port !~ /^[-,\d]+$/) {
       $log->fatal("Invalid port provided: [$port]");
    }
 
-   # We keep the provided hostname (or IP) here
-   $self->hostname($self->ip);
-   if ($global->dnsResolve) {
-      $self->ip($global->getHostAddr(host => $self->ip));
-   }
-
-   if ($global->dnsReverse) {
-      $self->reverse($global->getAddrReverse(addr => $self->ip) || 'unknown');
+   if (! $global->targetIp) {
+      $log->fatal("Invalid target IP provided: [".$global->targetIp."]");
    }
 
    return $self;
@@ -65,11 +54,11 @@ sub init {
    my $self = shift->SUPER::init(@_) or return;
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
 
-   my $me   = $global->ip;
-   my $ip   = $self->ip;
-   my $port = $self->port;
+   my $me = $global->ip;
+   my $ip = $global->targetIp;
+   my $port = $global->port;
 
    # Capture TCP SYN and SYN|ACK between source and target
    my $filter = '';
@@ -85,7 +74,7 @@ sub init {
    }
 
    my $oDump = $global->getDumpOnline(
-      filter        => $filter,
+      filter => $filter,
       timeoutOnNext => 0,
    );
    $oDump->start;
@@ -101,9 +90,12 @@ sub run {
    my $global = $self->global;
    my $log    = $global->log;
 
-   $log->info("Connecting to [".$self->ip."]:".$self->port);
+   my $ip = $global->targetIp;
+   my $port = $global->port;
 
-   my $s = $global->tcpConnect(ip => $self->ip, port => $self->port);
+   $log->info("Connecting to [$ip]:$port");
+
+   my $s = $global->tcpConnect(ip => $ip, port => $port);
    print $s $self->data;
    close($s);
 
@@ -126,7 +118,7 @@ sub run {
    }
 
    my $next = Net::SinFP3::Next::MultiFrame->new(
-      global    => $global,
+      global => $global,
       frameList => \@frames,
    );
 

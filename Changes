@@ -1,5 +1,17 @@
 Revision history for Perl extension Net::SinFP3.
 
+1.21 Sun Dec  2 17:59:05 CET 2012
+   - PERFORMANCE: SinFP3.xs: sinfp3_tcp_synscan(): now can SynScan a /8 by
+                  taking less than 1GB of RAM.
+   - update: Input::Server: can use target and port attribute for binding
+   - update: sinfp3.pl: no more -dns-resolve arg
+   - update: sinfp3.pl: default to -active-2
+   - update: deps: removed dependance on Net::Write::Fast
+   - bugfix: Output::Simple: remove results with smaller matchScore to keep only
+             best ones
+   - bugfix: Output::Simple: on printing unknown results
+   - bugfix: Worker::Thread: when Perl not compiled with thread support
+
 1.20 Sun Nov 25 14:44:37 CET 2012
    - NEW: Input::Server: runs as a daemon to answer requests coming from
           clients. They must speak the SinFP3 protocol.

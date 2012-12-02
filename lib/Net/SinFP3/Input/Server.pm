@@ -1,5 +1,5 @@
 #
-# $Id: Server.pm 2203 2012-11-18 14:56:59Z gomor $
+# $Id: Server.pm 2214 2012-12-02 14:38:04Z gomor $
 #
 package Net::SinFP3::Input::Server;
 use strict;
@@ -7,8 +7,6 @@ use warnings;
 
 use base qw(Net::SinFP3::Input);
 our @AS = qw(
-   ip
-   port
    timeout
    _server
    _client
@@ -34,8 +32,6 @@ sub give {
 
 sub new {
    my $self = shift->SUPER::new(
-      ip      => '127.0.0.1',
-      port    => 32000,
       timeout => 5,
       @_,
    );
@@ -50,18 +46,18 @@ sub init {
    my $self = shift->SUPER::init(@_) or return;
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
 
-   my $ip   = $self->ip;
-   my $port = $self->port;
+   my $ip = $global->targetIp || '127.0.0.1';
+   my $port = $global->port || 32000;
 
    my $s = IO::Socket::INET->new(
       LocalAddr => $ip,
       LocalPort => $port,
-      Domain    => AF_INET,
+      Domain => AF_INET,
       ReuseAddr => 1,
-      Type      => SOCK_STREAM,
-      Listen    => $global->jobs,
+      Type => SOCK_STREAM,
+      Listen => $global->jobs,
    ) or $log->fatal("Unable to start server socket");
 
    $s->blocking(0);
@@ -70,7 +66,7 @@ sub init {
    my $sel = IO::Select->new;
    $sel->add($s);
 
-   $log->verbose("Server listening on: [".$self->ip."]:".$self->port);
+   $log->verbose("Server listening on: [$ip]:$port");
 
    $self->_sel($sel);
    $self->_server($s);

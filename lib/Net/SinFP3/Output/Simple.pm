@@ -1,5 +1,5 @@
 #
-# $Id: Simple.pm 2203 2012-11-18 14:56:59Z gomor $
+# $Id: Simple.pm 2215 2012-12-02 15:15:14Z gomor $
 #
 package Net::SinFP3::Output::Simple;
 use strict;
@@ -29,19 +29,36 @@ sub _runUnknown {
    my $self = shift;
    my ($results) = @_;
 
-   my $r     = $results->[0];
-   my $frame = $r->frame;
-   my $ip    = $frame->ref->{IPv4} || $frame->ref->{IPv6};
-   my $tcp   = $frame->ref->{TCP};
-   my $buf   = sprintf("[%-15s]:%-5d > [%-15s]:%-5d  reverse: %s  [Unknown OS]",
-      $ip->src,
-      $tcp->src,
-      $ip->dst,
-      $tcp->dst,
-      $r->reverse,
-   );
+   my $global = $self->global;
+   my $log    = $global->log;
+   my $mode   = $global->mode;
 
-   print $buf."\n";
+   my $ref = ref($mode);
+   my $r   = $results->[0];
+
+   my $line = '';
+   if ($ref =~ /^Net::SinFP3::Mode::Passive$/) {
+      my $frame = $r->frame;
+      my $ip    = $frame->ref->{IPv4} || $frame->ref->{IPv6};
+      my $tcp   = $frame->ref->{TCP};
+      $line     = sprintf("[%-15s]:%-5d > [%-15s]:%-5d  reverse: %s  ".
+                          "[Unknown OS]",
+         $ip->src,
+         $tcp->src,
+         $ip->dst,
+         $tcp->dst,
+         $r->reverse,
+      );
+   }
+   elsif ($ref =~ /^Net::SinFP3::Mode::Active$/) {
+      $line = sprintf("[%-15s]:%-5d  reverse: %s  [Unknown OS]",
+         $r->ip,
+         $r->port,
+         $r->reverse,
+      );
+   }
+
+   print $line."\n";
 
    return 1;
 }
@@ -67,29 +84,39 @@ sub _runActive {
    my $self = shift;
    my ($results) = @_;
 
+   my %os = ();
+   for my $r (@$results) {
+      my $os = $r->os.' '.$r->osVersionFamily;
+      if (! $os{$os}->{matchScore} || $r->matchScore > $os{$os}->{matchScore}) {
+         $os{$os}->{matchScore} = $r->matchScore;
+      }
+   }
+
    my @lines = ();
    for my $r (@$results) {
-      my $line = sprintf("[%-15s]:%-5d  reverse: %s  [%3d%%: %s %s]",
-         $r->ip,
-         $r->port,
-         $r->reverse,
-         $r->matchScore,
-         $r->os,
-         $r->osVersionFamily,
-      );
+      my $os = $r->os.' '.$r->osVersionFamily;
+      if ($os{$os}->{matchScore} == $r->matchScore) {
+         my $line = sprintf("[%-15s]:%-5d  reverse: %s  [%3d%%: %s]",
+            $r->ip,
+            $r->port,
+            $r->reverse,
+            $r->matchScore,
+            $os,
+         );
 
-      my $found = 0;
-      for my $this (@lines) {
-         if ($this eq $line) {
-            $found++;
-            last;
+         my $found = 0;
+         for my $this (@lines) {
+            if ($this eq $line) {
+               $found++;
+               last;
+            }
          }
-      }
-      if ($found) {
-         next;
-      }
+         if ($found) {
+            next;
+         }
 
-      push @lines, $line;
+         push @lines, $line;
+      }
    }
 
    print join("\n", @lines)."\n";
@@ -102,37 +129,48 @@ sub _runPassive {
    my ($results) = @_;
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
+
+   my %os = ();
+   for my $r (@$results) {
+      my $os = $r->os.' '.$r->osVersionFamily;
+      if (! $os{$os}->{matchScore} || $r->matchScore > $os{$os}->{matchScore}) {
+         $os{$os}->{matchScore} = $r->matchScore;
+      }
+   }
 
    my @lines = ();
    for my $r (@$results) {
-      my $frame = $r->frame;
-      my $ip    = $frame->ref->{IPv4} || $frame->ref->{IPv6};
-      my $tcp   = $frame->ref->{TCP};
-      my $line = sprintf("[%-15s]:%-5d > [%-15s]:%-5d  reverse: %s  ".
-                         "[%3d%%: %s %s]",
-         $ip->src,
-         $tcp->src,
-         $ip->dst,
-         $tcp->dst,
-         $r->reverse,
-         $r->matchScore,
-         $r->os,
-         $r->osVersionFamily,
-      );
+      my $os = $r->os.' '.$r->osVersionFamily;
+      if ($os{$os}->{matchScore} == $r->matchScore) {
+         my $frame = $r->frame;
+         my $ip = $frame->ref->{IPv4} || $frame->ref->{IPv6};
+         my $tcp = $frame->ref->{TCP};
+         my $line = sprintf("[%-15s]:%-5d > [%-15s]:%-5d  reverse: %s  ".
+                            "[%3d%%: %s %s]",
+            $ip->src,
+            $tcp->src,
+            $ip->dst,
+            $tcp->dst,
+            $r->reverse,
+            $r->matchScore,
+            $r->os,
+            $r->osVersionFamily,
+         );
 
-      my $found = 0;
-      for my $this (@lines) {
-         if ($this eq $line) {
-            $found++;
-            last;
+         my $found = 0;
+         for my $this (@lines) {
+            if ($this eq $line) {
+               $found++;
+               last;
+            }
          }
-      }
-      if ($found) {
-         next;
-      }
+         if ($found) {
+            next;
+         }
 
-      push @lines, $line;
+         push @lines, $line;
+      }
    }
 
    print join("\n", @lines)."\n";

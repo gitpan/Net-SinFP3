@@ -1,5 +1,5 @@
 #
-# $Id: Global.pm 2197 2012-11-14 20:46:44Z gomor $
+# $Id: Global.pm 2216 2012-12-02 16:14:58Z gomor $
 #
 package Net::SinFP3::Global;
 use strict;
@@ -17,11 +17,21 @@ our @AS = qw(
    output
 
    target
+   targetIp
+   targetReverse
+   targetList
+   targetListAsInt
+   targetCount
+   targetSubnet
+   targetHostname
+
    port
+   portList
+   portCount
+
    ipv6
    jobs
    macLookup
-   dnsResolve
    dnsReverse
    worker
    device
@@ -43,6 +53,7 @@ our @AS = qw(
    cacheArp
    cacheDnsReverse
    cacheDnsResolve
+
    data
 );
 our @AA = qw(
@@ -72,7 +83,6 @@ sub new {
       job        => 0,
       ipv6       => 0,
       macLookup  => 1,
-      dnsResolve => 1,
       dnsReverse => 0,
       jobs       => 10,
       retry      => 3,
@@ -82,6 +92,8 @@ sub new {
       srcPort    => 31337,
       threshold  => 0,
       bestScore  => 0,
+      port       => 'top10',
+      targetReverse => 'unknown',
       result     => [],
       cacheArp   => {},
       @_,
@@ -94,17 +106,9 @@ sub new {
 
    my $dev;
    if ($self->target) {
-      my $target = $self->target;
-      my $ip;
-      if ($target =~ /^[0-9\/\-,\.]+$/ && $target =~ /\//) {
-         my $ipList = $self->expandSubnet(subnet => $target);
-         $ip = $ipList->[1];
-      }
-      else {
-         $ip = $self->getHostAddr(host => $self->target) or return;
-      }
+      my $ip = $self->_parseTarget;
+
       my %args = ();
-      $log->debug("target: [$ip]");
       $self->ipv6   ? ($args{target6} = $ip) : ($args{target} = $ip);
       $self->device ? ($args{dev}     = $self->device) : ();
       $dev = Net::Frame::Device->new(%args);
@@ -126,6 +130,8 @@ sub new {
          $log->warning("Unable to get default device information");
       }
    }
+
+   $self->_parsePort;
 
    $self->device($dev->dev)            if !$self->device    && $dev->dev;
    $self->ip($dev->ip)                 if !$self->ip        && $dev->ip;
@@ -150,6 +156,132 @@ sub new {
    return $self;
 }
 
+sub _parseTarget {
+   my $self = shift;
+
+   my $log = $self->log;
+
+   my $target = $self->target;
+   if (! $target) {
+      return 1;
+   }
+
+   # Possible formats
+   #  FQDN => 0
+   #  SUBNET => 1
+   #  IP/32 => 2 
+   #  IP => 2
+
+   $target =~ s/\/32$//;
+   $self->target($target);
+
+   my $format = 0;  # FQDN format by default
+   if ($target =~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\/\d+$/) {
+      $format = 1; # Subnet format
+   }
+   elsif ($target =~ /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
+      $format = 2; # Single IP format
+   }
+
+   my $ip;
+   if ($format == 0) {  # FQDN format
+      $ip = $self->getHostAddr(host => $target)
+         or $log->fatal("Unable to resolve target hostname: [$target]");
+
+      $self->targetHostname($target);
+      $self->targetIp($ip);
+      $self->targetCount(1);
+      $self->targetList([ $ip ]);
+      if ($self->ipv6) {
+         # XXX: to test
+         $self->targetListAsInt([ unpack('NNNN', inet_pton(Socket6::AF_INET6(), $ip)) ]);
+      }
+      else {
+         $self->targetListAsInt([ unpack('N', inet_aton($ip)) ]);
+      }
+   }
+   elsif ($format == 1) {
+       if ($self->ipv6) {
+          $log->fatal("IPv6 subnet scanning not supported (yet): [$target]");
+       }
+       else {
+          my $list = $self->expandSubnet(
+             subnet => $target,
+             asInt => 1,
+          ) or $log->fatal("Unable to parse this subnet: [$target]");
+
+          my $size = scalar(@$list);
+          $self->targetCount($size);
+          if ($size > 1) {  # Skip the network address
+             $ip = inet_ntoa(pack('N', $list->[1]))
+                or $log->fatal("Unable to inet_ntoa: $!");
+          }
+          elsif ($size == 1) {  # No network address here
+             $ip = inet_ntoa(pack('N', $list->[0]))
+                or $log->fatal("Unable to inet_ntoa: $!");
+          }
+          else {
+             $log->fatal("Unable to analyze this subnet: [$target]");
+          }
+          $self->targetIp($ip);
+          # XXX: do we convert all IPs to ASCII format here? -> targetList
+          # No, it will take too much memory. Must be a user option.
+          $self->targetListAsInt($list);
+       }
+   }
+   elsif ($format == 2) {  # Single IP format
+      $self->targetIp($target);
+      $self->targetCount(1);
+      $self->targetList([ $target ]);
+      $self->targetListAsInt([ unpack('N', inet_aton($target)) ]);
+   }
+   else {
+      $log->fatal("Unknown target format");
+   }
+
+   #$log->debug("_parseTarget: target: ".($self->target || '(null)'));
+   #$log->debug("_parseTarget: targetIp: ".($self->targetIp || '(null)'));
+   #$log->debug("_parseTarget: targetCount: ".($self->targetCount || '(null)'));
+   #$log->debug("_parseTarget: targetSubnet: ".($self->targetSubnet || '(null)'));
+   #$log->debug("_parseTarget: targetHostname: ".($self->targetHostname || '(null)'));
+   #my $listAsInt = $self->targetListAsInt;
+   #my $first = $listAsInt->[0] || '(null)';
+   #$log->debug("_parseTarget: targetListAsInt first: $first");
+
+   if ($self->dnsReverse) {
+      $self->targetReverse(
+         $self->getAddrReverse(addr => $self->targetIp) || 'unknown'
+      );
+   }
+
+   return $self->targetIp;
+}
+
+sub _parsePort {
+   my $self = shift;
+
+   my $log = $self->log;
+
+   # Valid port format
+   #  Single port: 80
+   #  Range port: 80-90
+   #  Comma list: 80,81,82
+   #  Mixed list: 80-90,100
+   #  Fixed: top10, top100, top1000, all|full
+
+   my $list = $self->expandPorts(ports => $self->port)
+      or $log->fatal("Unable to expand ports: [".$self->port."]");
+
+   $self->portList($list);
+   $self->portCount(scalar(@$list));
+
+   #$log->debug("_parsePort: portCount: ".scalar(@$list));
+   #$log->debug("_parsePort: portList first: ".$list->[0]);
+   ##$log->debug("_parsePort: portList: ".join(',', @$list));
+
+   return 1;
+}
+
 sub expandSubnet {
    my $self = shift;
    my %h = @_;
@@ -161,6 +293,10 @@ sub expandSubnet {
    }
    my $subnet = $h{subnet};
 
+   if ($subnet !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\/\d+$/) {
+      $log->fatal("expandSubnet: Invalid subnet format: [$subnet]");
+   }
+
    my $oNet = Net::Netmask->new2($subnet);
    if (!defined($oNet)) {
       $log->warning("expandSubnet: Net::Netmask error for subnet ".
@@ -168,10 +304,23 @@ sub expandSubnet {
       return;
    }
 
+   $log->debug("Expanding subnet IP addresses, this may take a few seconds ...");
+
    my @list = ();
-   for my $ip ($oNet->enumerate) {
-      push @list, $ip;
+   my $size = $oNet->size;
+   my $ibase = $oNet->{IBASE};
+   if ($h{asInt}) {
+      for my $i (0..$size-1) {
+         push @list, $ibase+$i;
+      }
    }
+   else {
+      for my $i (0..$size-1) {
+         push @list, inet_ntoa(pack('N', $ibase+$i));
+      }
+   }
+
+   $log->debug("Expanding subnet IP addresses: Done (count: ".scalar(@list).")");
 
    return \@list;
 }
@@ -186,6 +335,8 @@ sub expandPorts {
       $log->fatal("expandPorts: You must provide ports attribute");
    }
    my $ports = $h{ports};
+
+   #$log->debug("Expanding target ports, this may take a few seconds ...");
 
    if ($ports =~ /all|full/i) {
       $ports = '0-65535';
@@ -210,6 +361,8 @@ sub expandPorts {
          push @ports, $p;
       }
    }
+
+   #$log->debug("Expanding target ports: Done (count: ".scalar(@ports).")");
 
    return \@ports;
 }
@@ -575,10 +728,6 @@ Use IPv6 mode globally or not (default to not).
 =item B<jobs> ($scalar)
 
 The maximum number of jobs to do in parallel (default to 10).
-
-=item B<dnsResolve> ($scalar)
-
-Do DNS resolution or not (default to yes).
 
 =item B<dnsReverse> ($scalar)
 

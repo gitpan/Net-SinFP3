@@ -1,13 +1,13 @@
 #
-# $Id: SinFP3.pm 2198 2012-11-15 13:03:10Z gomor $
+# $Id: SinFP3.pm 2220 2012-12-02 16:56:10Z gomor $
 #
 package Net::SinFP3;
 use strict;
 use warnings;
 
-our $VERSION = '1.20';
+our $VERSION = '1.21';
 
-use base qw(Class::Gomor::Array);
+use base qw(Class::Gomor::Array DynaLoader);
 our @AS = qw(
    global
 );
@@ -33,12 +33,19 @@ our %EXPORT_TAGS = (
       NS_MATCH_MASK_HEURISTIC1
       NS_MATCH_MASK_HEURISTIC2
    )],
+   functions => [qw(
+      sinfp3_tcp_synscan
+      sinfp3_geterror
+   )],
 );
 
 our @EXPORT_OK = (
    @{$EXPORT_TAGS{matchType}},
    @{$EXPORT_TAGS{matchMask}},
+   @{$EXPORT_TAGS{functions}},
 );
+
+__PACKAGE__->bootstrap($VERSION);
 
 use constant NS_MATCH_TYPE_S1S2S3 => 'S1S2S3';
 use constant NS_MATCH_TYPE_S1S2   => 'S1S2';
@@ -246,6 +253,7 @@ sub run {
    }
 
    $worker->clean;
+   $log->info("Done: operation successful");
 
    return 1;
 }
@@ -318,6 +326,16 @@ Arrayref of B<Net::SinFP3::Search> objects.
 =item B<output> ([ B<Net::SinFP3::Output>, ... ])
 
 Arrayref of B<Net::SinFP3::Output> objects.
+
+=back
+
+=head1 FUNCTIONS
+
+=over 4
+
+=item B<sinfp3_geterror>
+
+=item B<sinfp3_tcp_synscan>
 
 =back
 

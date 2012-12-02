@@ -39,10 +39,10 @@ requires:
   Net::Libdnet: 0.90
   Net::Netmask: 0
   Net::Write: 0
-  Net::Write::Fast: 0.14
   POSIX: 0
   Parallel::ForkManager: 0
   Socket: 0
   Socket6: 0
+  Time::Interval: 0
   perl: 5.006001
-version: 1.20
+version: 1.21

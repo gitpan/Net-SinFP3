@@ -1,5 +1,5 @@
 #
-# $Id: IpPort.pm 2155 2012-08-31 12:43:09Z gomor $
+# $Id: IpPort.pm 2214 2012-12-02 14:38:04Z gomor $
 #
 package Net::SinFP3::Input::IpPort;
 use strict;
@@ -7,10 +7,6 @@ use warnings;
 
 use base qw(Net::SinFP3::Input);
 our @AS = qw(
-   ip
-   port
-   hostname
-   reverse
    mac
 );
 __PACKAGE__->cgBuildIndices;
@@ -26,36 +22,28 @@ sub give {
 
 sub new {
    my $self = shift->SUPER::new(
-      hostname => 'unknown',
-      reverse  => 'unknown',
-      mac      => '00:00:00:00:00:00',
+      mac => '00:00:00:00:00:00',
       @_,
    );
 
    my $global = $self->global;
    my $log    = $global->log;
 
-   if (!defined($self->ip)) {
-      $log->fatal("You must provide ip attribute");
-   }
-   if (!defined($self->port)) {
-      $log->fatal("You must provide port attribute");
+   if (! defined($global->target)) {
+      $log->fatal("You must provide `target' attribute in Global object");
    }
 
-   my $port = $self->port;
+   if (! defined($global->port)) {
+      $log->fatal("You must provide `port' attribute in Global object");
+   }
+
+   if (! $global->targetIp) {
+      $log->fatal("Invalid target IP provided: [".$global->targetIp."]");
+   }
+
+   my $port = $global->port;
    if ($port !~ /^[-,\d]+$/) {
       $log->fatal("Invalid port provided: [$port]");
-   }
-
-   # We keep the provided hostname (or IP) here
-   $self->hostname($self->ip);
-   if ($global->dnsResolve) {
-      my $ip = $global->getHostAddr(host => $self->ip) or return;
-      $self->ip($ip);
-   }
-
-   if ($global->dnsReverse) {
-      $self->reverse($global->getAddrReverse(addr => $self->ip) || 'unknown');
    }
 
    return $self;
@@ -64,21 +52,25 @@ sub new {
 sub init {
    my $self = shift->SUPER::init(@_) or return;
 
-   my $portList = $self->global->expandPorts(ports => $self->port);
+   my $global = $self->global;
+   my $log = $global->log;
 
-   my $ip       = $self->ip;
-   my $hostname = $self->hostname;
-   my $reverse  = $self->reverse;
-   my $mac      = $self->mac;
+   my $portList = $global->portList;
+   my $ip = $global->targetIp;
+   my $hostname = $global->targetHostname;
+
+   my $reverse = $global->targetReverse;
+   my $mac = $self->mac;
+
    my @nextList = ();
    for my $port (@$portList) {
       my $next = Net::SinFP3::Next::IpPort->new(
-         global   => $self->global,
-         ip       => $ip,
-         port     => $port,
+         global => $self->global,
+         ip => $ip,
+         port => $port,
          hostname => $hostname,
-         reverse  => $reverse,
-         mac      => $mac,
+         reverse => $reverse,
+         mac => $mac,
       );
       push @nextList, $next;
    }
@@ -92,7 +84,7 @@ sub run {
    my $self = shift->SUPER::run(@_) or return;
 
    my @nextList = $self->nextList;
-   my $next     = shift @nextList;
+   my $next = shift @nextList;
    $self->nextList(\@nextList);
 
    return $next;

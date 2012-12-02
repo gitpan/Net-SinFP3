@@ -1,16 +1,12 @@
 #
-# $Id: ArpDiscover.pm 2186 2012-10-23 13:12:32Z gomor $
+# $Id: ArpDiscover.pm 2214 2012-12-02 14:38:04Z gomor $
 #
 package Net::SinFP3::Input::ArpDiscover;
 use strict;
 use warnings;
 
 use base qw(Net::SinFP3::Input);
-our @AS = qw(
-   port
-);
 __PACKAGE__->cgBuildIndices;
-__PACKAGE__->cgBuildAccessorsScalar(\@AS);
 
 use Net::SinFP3::Next::IpPort;
 
@@ -29,10 +25,11 @@ sub new {
       @_,
    );
 
-   my $log = $self->global->log;
+   my $global = $self->global;
+   my $log = $global->log;
 
-   if (!defined($self->port)) {
-      $log->fatal("You must provide a port attribute");
+   if (! defined($global->port)) {
+      $log->fatal("You must provide a `port' attribute in Global object");
    }
 
    return $self;
@@ -159,10 +156,10 @@ sub init {
    my $self = shift->SUPER::init(@_) or return;
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
 
    my $ipMacList = $self->_arpDiscover;
-   my $portList  = $self->global->expandPorts(ports => $self->port);
+   my $portList = $global->portList;
 
    my @nextList = ();
    for my $ip (keys %$ipMacList) {
@@ -174,9 +171,9 @@ sub init {
       for my $port (@$portList) {
          push @nextList, Net::SinFP3::Next::IpPort->new(
             global => $self->global,
-            ip     => $ip,
-            port   => $port,
-            mac    => $mac,
+            ip => $ip,
+            port => $port,
+            mac => $mac,
          );
       }
    }
