@@ -1,5 +1,5 @@
 #
-# $Id: Active.pm 2194 2012-11-13 20:55:10Z gomor $
+# $Id: Active.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Search::Active;
 use strict;
@@ -10,6 +10,7 @@ our @AS = qw(
    s1
    s2
    s3
+   _cache
 );
 __PACKAGE__->cgBuildIndices;
 __PACKAGE__->cgBuildAccessorsScalar(\@AS);
@@ -39,54 +40,173 @@ sub new {
    return $self;
 }
 
+sub __patternBinary {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternBinary',
+      idPattern => 'idPatternBinary',
+      idSPattern => 'id'.$probe.'PatternBinary',
+      pattern => $sig->{$probe}->B,
+      tPattern => 'PatternBinary',
+      cPattern => '_PatternBinary',
+   };
+}
+
+sub __patternTcpFlags {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpFlags',
+      idPattern => 'idPatternTcpFlags',
+      idSPattern => 'id'.$probe.'PatternTcpFlags',
+      pattern => $sig->{$probe}->F,
+      tPattern => 'PatternTcpFlags',
+      cPattern => '_PatternTcpFlags',
+   };
+}
+
+sub __patternTcpWindow {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpWindow',
+      idPattern => 'idPatternTcpWindow',
+      idSPattern => 'id'.$probe.'PatternTcpWindow',
+      pattern => $sig->{$probe}->W,
+      tPattern => 'PatternTcpWindow',
+      cPattern => '_PatternTcpWindow',
+   };
+}
+
+sub __patternTcpOptions {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpOptions',
+      idPattern => 'idPatternTcpOptions',
+      idSPattern => 'id'.$probe.'PatternTcpOptions',
+      pattern => $sig->{$probe}->O,
+      tPattern => 'PatternTcpOptions',
+      cPattern => '_PatternTcpOptions',
+   };
+}
+
+sub __patternTcpMss {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpMss',
+      idPattern => 'idPatternTcpMss',
+      idSPattern => 'id'.$probe.'PatternTcpMss',
+      pattern => $sig->{$probe}->M,
+      tPattern => 'PatternTcpMss',
+      cPattern => '_PatternTcpMss',
+   };
+}
+
+sub __patternTcpWScale {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpWScale',
+      idPattern => 'idPatternTcpWScale',
+      idSPattern => 'id'.$probe.'PatternTcpWScale',
+      pattern => $sig->{$probe}->S,
+      tPattern => 'PatternTcpWScale',
+      cPattern => '_PatternTcpWScale',
+   };
+}
+
+sub __patternTcpOLength {
+   my ($probe, $sig) = @_;
+
+   return {
+      table => 'patternTcpOLength',
+      idPattern => 'idPatternTcpOLength',
+      idSPattern => 'id'.$probe.'PatternTcpOLength',
+      pattern => $sig->{$probe}->L,
+      tPattern => 'PatternTcpOLength',
+      cPattern => '_PatternTcpOLength',
+   };
+}
+
 sub _getPossibleSignatureIds {
    my $self = shift;
    my ($probe, $sig) = @_;
 
    my $global = $self->global;
-   my $log    = $global->log;
-   my $db     = $global->db;
+   my $log = $global->log;
+   my $db = $global->db;
+
+   my $cache = $self->_cache;
 
    my %patterns = (
-      PatternBinary     => 'B',
-      PatternTcpFlags   => 'F',
-      PatternTcpWindow  => 'W',
+      PatternBinary => 'B',
+      PatternTcpFlags => 'F',
+      PatternTcpWindow => 'W',
       PatternTcpOptions => 'O',
-      PatternTcpMss     => 'M',
-      PatternTcpWScale  => 'S',
+      PatternTcpMss => 'M',
+      PatternTcpWScale => 'S',
       PatternTcpOLength => 'L',
    );
-   my %results = ();
-   for my $tPattern (keys %patterns) {
-      my $pId             = "id$tPattern";
-      my $signatureMethod = "id$probe"."$tPattern";
-      # $sig->{S1}->{B} for instance
-      my $p               = $sig->{$probe}->{$patterns{$tPattern}};
 
-      my $_table = "_$tPattern";
-      my %ids    = ();
+   my %results = ();
+   for my $sub (
+      qw(
+         __patternTcpWindow __patternTcpOptions __patternBinary
+         __patternTcpWScale __patternTcpMss __patternTcpOLength
+         __patternTcpFlags
+      )
+   ) {
+      my $fields;
+      {
+         no strict 'refs';
+         $fields = &$sub($probe, $sig);
+      }
+
+      my $table = $fields->{table};
+      my $idPattern = $fields->{idPattern};
+      my $idSPattern = $fields->{idSPattern};
+      my $pattern = $fields->{pattern};
+      my $tPattern = $fields->{tPattern};
+      my $cPattern = $fields->{cPattern};
+
+      my %ids = ();
       for my $h ('Heuristic0', 'Heuristic1', 'Heuristic2') {
-         for my $t ($db->$_table) {
-            (my $method = $tPattern.$h) =~ s/^(.)(.*)$/@{[lc($1)]}$2/;
+         my $method = $table.$h;  # patternBinaryHeuristic0
+         for my $t ($db->$cPattern) {
+            my $id = $t->{$idPattern};
+            my $ent = "$idSPattern-$id";
+            my $match = $t->{$method};
+
             # We match either using regexp from DB, 
             # or regexp built in passive mode
-            if ($p =~ /^@{[$t->{$method}]}$/ || $t->{$method} =~ /$p/) {
-               #print "DEBUG: [$p] against [".$t->{$method}."]\n";
-               my $id   = $t->{$pId};
-               my $list = $db->searchSignatureIds(
-                  $signatureMethod => $id,
-               );
+            if ($pattern =~ /^$match$/ || $match =~ /$pattern/) {
+               #print "DEBUG: [$pattern] against [$match]\n";
+               my $list;
+               if (exists $cache->{$ent}) {
+                  $list = $cache->{$ent};
+               }
+               else {
+                  $list = $db->searchSignatureIds($idSPattern => $id);
+                  $cache->{$ent} = $list;
+               }
                for (@$list) {
-                  $ids{$h}->{$_->{idSignature}}++;
+                  $ids{$h}->{$_}++;
                   #print "DEBUG: possibleId [$id]\n";
                }
             }
          }
       }
+
+      # $results{B} = \%ids;
       $results{$patterns{$tPattern}} = \%ids;
    }
+
    #print "DEBUG: [$probe]_getPossibleSignatureIds: ",
       #Dumper(\%results),"\n";
+
    return \%results;
 }
 
@@ -175,27 +295,39 @@ sub _getIntersectionWithMask {
    my $self = shift;
    my ($bList, $fList, $wList, $oList, $mList, $sList, $lList, $mask) = @_;
 
-   my $b = $mask =~ /BH0/ && 'Heuristic0'
-        || $mask =~ /BH1/ && 'Heuristic1'
-        || $mask =~ /BH2/ && 'Heuristic2';
-   my $f = $mask =~ /FH0/ && 'Heuristic0'
-        || $mask =~ /FH1/ && 'Heuristic1'
-        || $mask =~ /FH2/ && 'Heuristic2';
-   my $w = $mask =~ /WH0/ && 'Heuristic0'
-        || $mask =~ /WH1/ && 'Heuristic1'
-        || $mask =~ /WH2/ && 'Heuristic2';
-   my $o = $mask =~ /OH0/ && 'Heuristic0'
-        || $mask =~ /OH1/ && 'Heuristic1'
-        || $mask =~ /OH2/ && 'Heuristic2';
-   my $m = $mask =~ /MH0/ && 'Heuristic0'
-        || $mask =~ /MH1/ && 'Heuristic1'
-        || $mask =~ /MH2/ && 'Heuristic2';
-   my $s = $mask =~ /SH0/ && 'Heuristic0'
-        || $mask =~ /SH1/ && 'Heuristic1'
-        || $mask =~ /SH2/ && 'Heuristic2';
-   my $l = $mask =~ /LH0/ && 'Heuristic0'
-        || $mask =~ /LH1/ && 'Heuristic1'
-        || $mask =~ /LH2/ && 'Heuristic2';
+   my %map = (
+      'BH0' => 'Heuristic0',
+      'BH1' => 'Heuristic1',
+      'BH2' => 'Heuristic2',
+      'FH0' => 'Heuristic0',
+      'FH1' => 'Heuristic1',
+      'FH2' => 'Heuristic2',
+      'WH0' => 'Heuristic0',
+      'WH1' => 'Heuristic1',
+      'WH2' => 'Heuristic2',
+      'OH0' => 'Heuristic0',
+      'OH1' => 'Heuristic1',
+      'OH2' => 'Heuristic2',
+      'MH0' => 'Heuristic0',
+      'MH1' => 'Heuristic1',
+      'MH2' => 'Heuristic2',
+      'SH0' => 'Heuristic0',
+      'SH1' => 'Heuristic1',
+      'SH2' => 'Heuristic2',
+      'LH0' => 'Heuristic0',
+      'LH1' => 'Heuristic1',
+      'LH2' => 'Heuristic2',
+   );
+
+   my @mask = unpack('a3a3a3a3a3a3a3', $mask);
+
+   my $b = $map{$mask[0]};
+   my $f = $map{$mask[1]};
+   my $w = $map{$mask[2]};
+   my $o = $map{$mask[3]};
+   my $m = $map{$mask[4]};
+   my $s = $map{$mask[5]};
+   my $l = $map{$mask[6]};
 
    # We force a search using a very specific heuristic mask
    my $smallest = $self->_searchSmallestHashWithMask(
@@ -205,18 +337,17 @@ sub _getIntersectionWithMask {
 
    my $inter;
    for my $id (@$smallest) {
-      for my $id (@$smallest) {
-         if ($bList->{$b}->{$id}
-         &&  $fList->{$f}->{$id}
-         &&  $wList->{$w}->{$id}
-         &&  $oList->{$o}->{$id}
-         &&  $mList->{$m}->{$id}
-         &&  $sList->{$s}->{$id}
-         &&  $lList->{$l}->{$id}) {
-            $inter->{$mask}->{$id}++;
-         }
+      if ($bList->{$b}->{$id}
+      &&  $fList->{$f}->{$id}
+      &&  $wList->{$w}->{$id}
+      &&  $oList->{$o}->{$id}
+      &&  $mList->{$m}->{$id}
+      &&  $sList->{$s}->{$id}
+      &&  $lList->{$l}->{$id}) {
+         $inter->{$mask}->{$id}++;
       }
    }
+
    return $inter;
 }
 
@@ -336,50 +467,36 @@ sub _countInter {
    return $ids;
 }
 
-sub _tohash {
-   my $self = shift;
-   my ($s) = @_;
-   return {
-      B => $self->$s->B,
-      F => $self->$s->F,
-      W => $self->$s->W,
-      O => $self->$s->O,
-      M => $self->$s->M,
-      S => $self->$s->S,
-      L => $self->$s->L,
-   };
-}
-
-sub _search {
+sub search {
    my $self = shift;
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
 
-   # Convert it to optimize a bit
-   my $s1 = $self->s1 && $self->_tohash('s1') || undef;
-   my $s2 = $self->s2 && $self->_tohash('s2') || undef;
-   my $s3 = $self->s3 && $self->_tohash('s3') || undef;
+   # Only keep received signatures
+   my %sig = ();
+   if ($self->s1 && $self->s1->B !~ 'B00000') {
+      $sig{S1} = $self->s1;
+   }
+   if ($self->s2 && $self->s2->B !~ 'B00000') {
+      $sig{S2} = $self->s2;
+   }
+   if ($self->s3 && $self->s3->B !~ 'B00000') {
+      $sig{S3} = $self->s3;
+   }
 
-   my %sig = (
-      'S1' => $s1,
-      'S2' => $s2,
-      'S3' => $s3,
-   );
-
+   # Search intersection for each probe response
    my $ids = {};
    for my $s (keys %sig) {
-      if ($sig{$s}) {
-         my $res   = $self->_getPossibleSignatureIds($s, \%sig);
-         #$log->debug("_getPossibleSignatureIds[$s]: ".Dumper($res));
-         my $inter = $self->_getIntersection(
-            $res->{B}, $res->{F}, $res->{W}, $res->{O}, $res->{M},
-            $res->{S}, $res->{L},
-         );
-         $ids->{$s}{Ids}   = $res;
-         $ids->{$s}{Inter} = $inter;
-         #$log->debug("inter[$s]: ".Dumper($inter));
-      }
+      my $res = $self->_getPossibleSignatureIds($s, \%sig);
+      #$log->debug("_getPossibleSignatureIds[$s]: ".Dumper($res));
+      my $inter = $self->_getIntersection(
+         $res->{B}, $res->{F}, $res->{W}, $res->{O}, $res->{M},
+         $res->{S}, $res->{L},
+      );
+      $ids->{$s}{Ids}   = $res;
+      $ids->{$s}{Inter} = $inter;
+      #$log->debug("inter[$s]: ".Dumper($inter));
    }
 
    # Make masks unique
@@ -725,7 +842,7 @@ sub run {
       $result = [ $r ];
    }
    else {
-      $result = $self->_search;
+      $result = $self->search;
       if (@$result == 0) {
          my $r = Net::SinFP3::Result::Unknown->new(
             global => $self->global,
@@ -784,7 +901,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

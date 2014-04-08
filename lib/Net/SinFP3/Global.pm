@@ -1,5 +1,5 @@
 #
-# $Id: Global.pm 2216 2012-12-02 16:14:58Z gomor $
+# $Id: Global.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Global;
 use strict;
@@ -18,6 +18,7 @@ our @AS = qw(
 
    target
    targetIp
+   targetIpAsInt
    targetReverse
    targetList
    targetListAsInt
@@ -94,6 +95,7 @@ sub new {
       bestScore  => 0,
       port       => 'top10',
       targetReverse => 'unknown',
+      targetHostname => 'unknown',
       result     => [],
       cacheArp   => {},
       @_,
@@ -192,15 +194,12 @@ sub _parseTarget {
       $self->targetIp($ip);
       $self->targetCount(1);
       $self->targetList([ $ip ]);
-      if ($self->ipv6) {
-         # XXX: to test
-         $self->targetListAsInt([ unpack('NNNN', inet_pton(Socket6::AF_INET6(), $ip)) ]);
-      }
-      else {
-         $self->targetListAsInt([ unpack('N', inet_aton($ip)) ]);
-      }
+
+      my $ipAsInt = $self->ipToInt(ip => $ip) or return;
+      $self->targetIpAsInt($ipAsInt);
+      $self->targetListAsInt([ $ipAsInt ]);
    }
-   elsif ($format == 1) {
+   elsif ($format == 1) {  # Subnet format
        if ($self->ipv6) {
           $log->fatal("IPv6 subnet scanning not supported (yet): [$target]");
        }
@@ -210,15 +209,17 @@ sub _parseTarget {
              asInt => 1,
           ) or $log->fatal("Unable to parse this subnet: [$target]");
 
+          $self->targetSubnet($target);
+
           my $size = scalar(@$list);
           $self->targetCount($size);
           if ($size > 1) {  # Skip the network address
-             $ip = inet_ntoa(pack('N', $list->[1]))
-                or $log->fatal("Unable to inet_ntoa: $!");
+             $self->targetIpAsInt($list->[1]);
+             $ip = $self->intToIp(int => $list->[1]) or return;
           }
           elsif ($size == 1) {  # No network address here
-             $ip = inet_ntoa(pack('N', $list->[0]))
-                or $log->fatal("Unable to inet_ntoa: $!");
+             $self->targetIpAsInt($list->[0]);
+             $ip = $self->intToIp(int => $list->[0]) or return;
           }
           else {
              $log->fatal("Unable to analyze this subnet: [$target]");
@@ -231,9 +232,11 @@ sub _parseTarget {
    }
    elsif ($format == 2) {  # Single IP format
       $self->targetIp($target);
+      my $ipAsInt = $self->ipToInt(ip => $target) or return;
+      $self->targetIpAsInt($ipAsInt);
       $self->targetCount(1);
       $self->targetList([ $target ]);
-      $self->targetListAsInt([ unpack('N', inet_aton($target)) ]);
+      $self->targetListAsInt([ $ipAsInt ]);
    }
    else {
       $log->fatal("Unknown target format");
@@ -241,6 +244,7 @@ sub _parseTarget {
 
    #$log->debug("_parseTarget: target: ".($self->target || '(null)'));
    #$log->debug("_parseTarget: targetIp: ".($self->targetIp || '(null)'));
+   #$log->debug("_parseTarget: targetIpAsInt: ".($self->targetIpAsInt || '(null)'));
    #$log->debug("_parseTarget: targetCount: ".($self->targetCount || '(null)'));
    #$log->debug("_parseTarget: targetSubnet: ".($self->targetSubnet || '(null)'));
    #$log->debug("_parseTarget: targetHostname: ".($self->targetHostname || '(null)'));
@@ -316,7 +320,7 @@ sub expandSubnet {
    }
    else {
       for my $i (0..$size-1) {
-         push @list, inet_ntoa(pack('N', $ibase+$i));
+         push @list, $self->intToIp(int => ($ibase + $i)) or return;
       }
    }
 
@@ -543,6 +547,66 @@ sub getAddrReverse {
    }
 
    return $reverse;
+}
+
+sub ipToInt {
+   my $self = shift;
+   my %h = @_;
+
+   my $log = $self->log;
+
+   if (! defined($h{ip})) {
+      $log->fatal("ipToInt: You must provide `ip' attribute");
+   }
+   my $ip = $h{ip};
+
+   if ($self->ipv6) {
+      # XXX: Should use inet_pton for IPv6 support
+      $log->warning("IPv6 to Int not supported, doing nothing");
+      return $ip;
+   }
+
+   my $int = $ip;
+   # Is this not yet in Int format?
+   if ($ip !~ /^\d+$/) {
+      $int = unpack('N', inet_aton($ip));
+      if (! defined($int)) {
+         $log->error("Unable to IP to Int address: [$ip]: $!");
+         return;
+      }
+   }
+
+   return $int;
+}
+
+sub intToIp {
+   my $self = shift;
+   my %h = @_;
+
+   my $log = $self->log;
+
+   if (! defined($h{int})) {
+      $log->fatal("intToIp: You must provide `int' attribute");
+   }
+   my $int = $h{int};
+
+   if ($self->ipv6) {
+      # XXX: Should use inet_ntop for IPv6 support
+      $log->warning("Int to IPv6 not supported, doing nothing");
+      return $int;
+   }
+
+   my $ip = $int;
+   # Is this in Int format?
+   if ($int =~ /^\d+$/) {
+      $ip = inet_ntoa(pack('N', $int));
+      if (! defined($ip)) {
+         $log->error("Unable to Int to IP address: [$int]: $!");
+         return;
+      }
+   }
+
+   return $ip;
 }
 
 sub getDumpOnline {
@@ -817,6 +881,14 @@ Will return the MAC address of the target IPv6 host, or the MAC address of the I
 
 Tries to resolve the IP address of the target host. It will use B<ipv6> attribute to resolve in IPv6 or IPv4 mode.
 
+=item B<intToIp> (ip => $scalar)
+
+Converts an IP address in presentation notation to numerical notation.
+
+=item B<ipToInt> (int => $scalar)
+
+Converts an IP address in numerical notation to presentation notation.
+
 =item B<getAddrReverse> (addr => $scalar)
 
 Tries to do a reverse lookup of the target host. It will use B<ipv6> attribute to resolve in IPv6 or IPv4 mode.
@@ -857,7 +929,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

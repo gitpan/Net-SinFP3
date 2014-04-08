@@ -1,5 +1,5 @@
 #
-# $Id: Output.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Output.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Output;
 use strict;
@@ -26,6 +26,28 @@ sub new {
 
 sub take {
    return [];
+}
+
+# Launched before first fork() on all modules
+sub preInit {
+   my $self = shift;
+   return $self;
+}
+
+# Launched only by job == 1, but we don't know when.
+sub firstInit {
+   my $self = shift;
+
+   my $global = $self->global;
+   my $log = $global->log;
+   my $job = $global->job;
+
+   # Execute only if we are job == 1
+   if ($job == 1) {
+      return $self;
+   }
+
+   return;
 }
 
 sub init {
@@ -64,6 +86,11 @@ sub run {
 }
 
 sub post {
+   my $self = shift;
+   return $self;
+}
+
+sub lastPost {
    my $self = shift;
    return $self;
 }
@@ -108,6 +135,14 @@ Object constructor. You must give it the following attributes: B<global>.
 
 Return an array ref of allowed I<Result> object types.
 
+=item B<preInit> ()
+
+Launched before the first job on all modules.
+
+=item B<firstInit> ()
+
+Launched only by job 1, but we don't know at which time.
+
 =item B<init> ()
 
 Do some initialization by writing this method.
@@ -122,6 +157,10 @@ Do some cleanup by writing this method. B<post> is run at the beginning of main 
 
    output->post > search->post > mode->post > db->post > input->post
 
+=item B<lastPost> ()
+
+Post in main process, at the end of all runs.
+
 =back
 
 =head1 AUTHOR
@@ -130,7 +169,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

@@ -1,5 +1,5 @@
 #
-# $Id: Signature.pm 2147 2012-08-31 09:21:36Z gomor $
+# $Id: Signature.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Input::Signature;
 use strict;
@@ -167,7 +167,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

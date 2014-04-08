@@ -1,5 +1,5 @@
 #
-# $Id: Passive.pm 2203 2012-11-18 14:56:59Z gomor $
+# $Id: Passive.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Search::Passive;
 use strict;
@@ -73,7 +73,7 @@ sub _getPossibleSignaturePIds {
                   $pId => $id,
                );
                for (@$list) {
-                  $ids{$h}->{$_->{idSignatureP}}++;
+                  $ids{$h}->{$_}++;
                   #print "DEBUG: possibleId [$id]\n";
                }
             }
@@ -197,17 +197,16 @@ sub _getIntersectionWithMask {
 
    my $inter;
    for my $id (@$smallest) {
-      for my $id (@$smallest) {
-         if ($fList->{$f}->{$id}
-         &&  $wList->{$w}->{$id}
-         &&  $oList->{$o}->{$id}
-         &&  $mList->{$m}->{$id}
-         &&  $sList->{$s}->{$id}
-         &&  $lList->{$l}->{$id}) {
-            $inter->{$mask}->{$id}++;
-         }
+      if ($fList->{$f}->{$id}
+      &&  $wList->{$w}->{$id}
+      &&  $oList->{$o}->{$id}
+      &&  $mList->{$m}->{$id}
+      &&  $sList->{$s}->{$id}
+      &&  $lList->{$l}->{$id}) {
+         $inter->{$mask}->{$id}++;
       }
    }
+
    return $inter;
 }
 
@@ -247,7 +246,7 @@ sub _countInter {
    return $ids;
 }
 
-sub _search {
+sub search {
    my $self = shift;
 
    my $global = $self->global;
@@ -420,7 +419,7 @@ sub run {
 
    $self->sp($mode->sp);
 
-   my $result = $self->_search;
+   my $result = $self->search;
    if (@$result == 0) {
       my $r = Net::SinFP3::Result::Unknown->new(
          global => $self->global,
@@ -465,7 +464,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

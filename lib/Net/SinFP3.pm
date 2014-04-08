@@ -1,11 +1,11 @@
 #
-# $Id: SinFP3.pm 2220 2012-12-02 16:56:10Z gomor $
+# $Id: SinFP3.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3;
 use strict;
 use warnings;
 
-our $VERSION = '1.21';
+our $VERSION = '1.22';
 
 use base qw(Class::Gomor::Array DynaLoader);
 our @AS = qw(
@@ -103,14 +103,14 @@ sub _do {
    my $self = shift;
 
    my $global = $self->global;
-   my $log    = $global->log;
-   my $input  = $global->input;
-   my $next   = $global->next;
+   my $log = $global->log;
+   my $input = $global->input;
+   my $next = $global->next;
 
    $log->info("Starting of job with Next ".$next->print);
 
-   my @db     = $self->db;
-   my @mode   = $self->mode;
+   my @db = $self->db;
+   my @mode = $self->mode;
    my @search = $self->search;
    my @output = $self->output;
 
@@ -149,6 +149,7 @@ sub _do {
                $global->output($output);
 
                $log->verbose("Starting of Output [".ref($output)."]");
+               $output->firstInit;
                $output->init or $log->fatal("Unable to init [".ref($output).
                                             "] module");
                $output->run or next;
@@ -159,7 +160,8 @@ sub _do {
          }
          $mode->post;
       }
-      $db->post;
+      # To have persistent $dbh, we MUST post() in main process
+      #$db->post;
    }
 
    return 1;
@@ -196,8 +198,9 @@ sub run {
    my $self = shift;
 
    my $global = $self->global;
-   my $log    = $global->log;
-   my @input  = $self->input;
+   my $log = $global->log;
+   my @input = $self->input;
+   my @output = $self->output;
 
    # Beware, recursive loop
    $log->global($global);
@@ -211,6 +214,10 @@ sub run {
    $log->info("Loaded Mode:   ".join(', ', map { ref($_) } $self->mode));
    $log->info("Loaded Search: ".join(', ', map { ref($_) } $self->search));
    $log->info("Loaded Output: ".join(', ', map { ref($_) } $self->output));
+
+   for my $output (@output) {
+      $output->preInit;
+   }
 
    my $job = 0;
    for my $input (@input) {
@@ -253,6 +260,15 @@ sub run {
    }
 
    $worker->clean;
+
+   for my $db ($self->db) {
+      $db->post;
+   }
+
+   for my $output (@output) {
+      $output->lastPost;
+   }
+
    $log->info("Done: operation successful");
 
    return 1;
@@ -359,7 +375,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

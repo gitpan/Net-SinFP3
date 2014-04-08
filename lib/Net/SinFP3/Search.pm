@@ -1,5 +1,5 @@
 #
-# $Id: Search.pm 2121 2012-04-14 10:22:46Z gomor $
+# $Id: Search.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Search;
 use strict;
@@ -122,7 +122,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

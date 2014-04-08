@@ -1,5 +1,5 @@
 #
-# $Id: SynScan.pm 2220 2012-12-02 16:56:10Z gomor $
+# $Id: SynScan.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Input::SynScan;
 use strict;
@@ -176,7 +176,7 @@ sub init {
          my $nChunks = ceil($targetCount / 500_000);
          for my $n (0..$nChunks-1) {
             my $first = 500_000 * $n;
-            my $last  = 499_999 + (500_000 * $n);
+            my $last = 499_999 + (500_000 * $n);
             if ($last > ($targetCount - 1)) {
                $last = $targetCount - 1;
             }
@@ -207,8 +207,9 @@ sub init {
       exit(0);
    }
    # Parent
+   my $start;
    my %skip = ();
-   while (! $oDump->timeout) {
+   while (1) {
       if (my $f = $oDump->next) {
          my $s = Net::Frame::Simple->newFromDump($f);
          if ($s->ref->{TCP}) {
@@ -216,9 +217,8 @@ sub init {
             my $tcp = $s->ref->{TCP};
             # Skip ports which already had a reply
             if ($skip{$ip->src}{$tcp->src}) {
-               next;
             }
-            if ($tcp->flags == 0x12) { # SYN+ACK
+            elsif ($tcp->flags == 0x12) { # SYN+ACK
                my $res = $self->_addToResult($s) or next;
                my @old = $self->nextList;
                $self->nextList([ @old, $res ]);
@@ -230,15 +230,22 @@ sub init {
             }
          }
       }
-      if ($oDump->timeout) {
-         $log->debug("Timeout occured");
-         # If $pid has exited and a timeout has occured
-         # waitpid returns 0 if process is running, -1 if stopped, and $pid at
-         # first waitpid invocation since process exited.
-         my $r = waitpid($pid, WNOHANG);
-         last if $r != -1 && $r != 0;
-         $log->debug("Timeout occured, but SYN send not finished");
-         $oDump->timeoutReset;
+      my $r = waitpid($pid, WNOHANG);
+      # First time, if process stopped, it returns the $pid
+      # Other times, if process stopped, it returns -1
+      if ($r == $pid || $r == -1) {  # Process stopped
+         if (! $start) {             # Start counting for the timeout
+            $start = time();
+         }
+         # Check error code
+         if (($r == $pid) && $?) {
+            $log->fatal("Child returned: ".${^CHILD_ERROR_NATIVE});
+         }
+         # If stopped since $timeout seconds, we exit
+         if (time() - $start > $global->timeout) {
+            $log->debug("Process stopped since ".$global->timeout." second(s)");
+            last;
+         }
       }
    }
 
@@ -278,7 +285,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

@@ -1,5 +1,5 @@
 /*
- * $Id: SinFP3.xs 2220 2012-12-02 16:56:10Z gomor $
+ * $Id: SinFP3.xs 2228 2012-12-09 13:42:25Z gomor $
  *
  *  /!\  DON'T NEVER EVER LOOK AT THIS CODE, YOU MAY DIE
  *
@@ -189,6 +189,7 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
    time_t now;
    int count;
    int scount;
+   int total    = 0;
    int npackets = 0; // Total number of packets
    int runtime  = 0; // Estimated running time
    int us       = 0; // Sleep time in us (minimum 10ms, per classic OS)
@@ -297,6 +298,7 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
    begin    = time(NULL);
    count    = 0;
    scount   = 0;
+   total    = 0;
    npackets = nports * ndst * n;
    runtime  = npackets / pps;
    us       = 10000; // Minimum delay 10ms, per classic OS restiction
@@ -307,19 +309,18 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
    }
 
    for (i=0; i<nports; i++) {
-      if (! v6) {
-         ptcph4->tcp_hdr.th_sport = htons(random());
-         ptcph4->tcp_hdr.th_dport = htons(ports[i]);
-         ptcph4->tcp_hdr.th_seq   = random();
-      }
-      else {
-         ptcph6->tcp_hdr.th_sport = htons(random());
-         ptcph6->tcp_hdr.th_dport = htons(ports[i]);
-         ptcph6->tcp_hdr.th_seq   = random();
-      }
-
       for (j=0; j<ndst; j++) {
          //printf("Target [%s]:%d [ipv6:%d]\n", ip_dst[j], ports[i], v6);
+         if (! v6) {
+            ptcph4->tcp_hdr.th_sport = htons(random());
+            ptcph4->tcp_hdr.th_dport = htons(ports[i]);
+            ptcph4->tcp_hdr.th_seq   = random();
+         }
+         else {
+            ptcph6->tcp_hdr.th_sport = htons(random());
+            ptcph6->tcp_hdr.th_dport = htons(ports[i]);
+            ptcph6->tcp_hdr.th_seq   = random();
+         }
 
          if (! ip_as_int) {
             adst = (struct addrinfo *)_sinfp3_malloc(sizeof(struct addrinfo));
@@ -389,6 +390,7 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
             }
             count++;
             scount++;
+            total++;
 
             // Sleep every X packet
             if (scount > (int)every) {
@@ -400,8 +402,17 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
                // Print stats and reset count
                now = time(NULL);
                if (now - begin >= 1) {
-                  fprintf(stderr, "[+] [XS] Sent %d pps (i/o %d pps), time to sleep %d ms (total packets: %d)\n",
-                          count, pps, us / 1000, npackets);
+                  fprintf(stderr, "[+] [XS] Sent %d pps (i/o %d pps), packets: %d/%d\n",
+                          count, pps, total, npackets);
+                  // Adjust pps
+                  if (pps >= 200) {  // Don't try to adjust if below 200pps
+                     if (count < pps) {
+                        every += (every/50);
+                     }
+                     else {
+                        every -= (every/50);
+                     }
+                  }
                   begin = time(NULL);
                   count = 0;
                }
@@ -424,6 +435,9 @@ sinfp3_tcp_synscan(char *ip_src, char **ip_dst, int ndst, int *ports,
    free(pdatagram);
 
    close(fd);
+
+   fprintf(stderr, "[+] [XS] Sent %d pps (i/o %d pps), packets: %d/%d: Done\n",
+           count, pps, total, npackets);
 
    return(1);
 }

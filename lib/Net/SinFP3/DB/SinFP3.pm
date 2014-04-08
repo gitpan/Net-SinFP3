@@ -1,5 +1,5 @@
 #
-# $Id: SinFP3.pm 2201 2012-11-18 12:59:19Z gomor $
+# $Id: SinFP3.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::DB::SinFP3;
 use strict;
@@ -9,6 +9,7 @@ use base qw(Net::SinFP3::DB);
 our @AS = qw(
    file
    _dbh
+   _prepared
 );
 our @AA = qw(
    _PatternBinary
@@ -72,15 +73,15 @@ sub getOsVersionChildrenList {
    my ($id) = @_;
 
    my $dbh = $self->_dbh;
-   my $s   = $dbh->prepare(qq{SELECT idOsVersion FROM OsVersionChildren WHERE idSignature=?});
-   my $rv  = $s->execute($id);
-   my $h   = $s->fetchall_hashref('idOsVersion');
+   my $idOsVersion = $self->_prepared->{idOsVersion};
+   my $rv = $idOsVersion->execute($id);
+   my $h = $idOsVersion->fetchall_hashref('idOsVersion');
 
    my @osVersionList = ();
-   my $sOsVersion = $dbh->prepare(qq{SELECT osVersion FROM OsVersion WHERE idOsVersion=?});
+   my $sOsVersion = $self->_prepared->{osVersion};
    for my $k (keys %$h) {
       my $rv = $sOsVersion->execute($k);
-      my $h  = $sOsVersion->fetchrow_hashref;
+      my $h = $sOsVersion->fetchrow_hashref;
       push @osVersionList, $h->{osVersion};
    }
 
@@ -167,16 +168,36 @@ sub init {
       $self->$_table(\@ary);
    }
 
+   # Create prepared statements
+   $self->_prepare;
+
    return 1;
 }
 
-sub searchSignatureIds {
+sub _prepare {
    my $self = shift;
-   my ($key, $value) = @_;
 
    my $dbh = $self->_dbh;
 
-   my %patterns = (
+   my %select = (
+      idOsVersion => qq{SELECT idOsVersion FROM OsVersionChildren WHERE idSignature=?},
+
+      osVersion => qq{SELECT osVersion FROM OsVersion WHERE idOsVersion=?},
+      ipVersion => qq{SELECT ipVersion FROM IpVersion WHERE idIpVersion=?},
+      os => qq{SELECT os FROM Os WHERE idOs=?},
+      osVersionFamily => qq{SELECT osVersionFamily FROM OsVersionFamily WHERE idOsVersionFamily=?},
+      systemClass => qq{SELECT systemClass FROM SystemClass WHERE idSystemClass=?},
+      vendor => qq{SELECT vendor FROM Vendor WHERE idVendor=?},
+
+      patternBinary => qq{SELECT * FROM PatternBinary WHERE idPatternBinary=?},
+      patternTcpFlags => qq{SELECT * FROM PatternTcpFlags WHERE idPatternTcpFlags=?},
+      patternTcpWindow => qq{SELECT * FROM PatternTcpWindow WHERE idPatternTcpWindow=?},
+      patternTcpOptions => qq{SELECT * FROM PatternTcpOptions WHERE idPatternTcpOptions=?},
+      patternTcpMss => qq{SELECT * FROM PatternTcpMss WHERE idPatternTcpMss=?},
+      patternTcpWScale => qq{SELECT * FROM PatternTcpWScale WHERE idPatternTcpWScale=?},
+      patternTcpOLength => qq{SELECT * FROM PatternTcpOLength WHERE idPatternTcpOLength=?},
+      signature => qq{SELECT * FROM Signature WHERE idSignature=?},
+
       idS1PatternBinary     => qq{SELECT idSignature FROM Signature WHERE idS1PatternBinary=?},
       idS1PatternTcpFlags   => qq{SELECT idSignature FROM Signature WHERE idS1PatternTcpFlags=?},
       idS1PatternTcpWindow  => qq{SELECT idSignature FROM Signature WHERE idS1PatternTcpWindow=?},
@@ -198,25 +219,49 @@ sub searchSignatureIds {
       idS3PatternTcpMss     => qq{SELECT idSignature FROM Signature WHERE idS3PatternTcpMss=?},
       idS3PatternTcpWScale  => qq{SELECT idSignature FROM Signature WHERE idS3PatternTcpWScale=?},
       idS3PatternTcpOLength => qq{SELECT idSignature FROM Signature WHERE idS3PatternTcpWScale=?},
+      all                   => qq{SELECT idSignature FROM Signature},
+      idPatternTcpFlags   => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpFlags=?},
+      idPatternTcpWindow  => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpWindow=?},
+      idPatternTcpOptions => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpOptions=?},
+      idPatternTcpMss     => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpMss=?},
+      idPatternTcpWScale  => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpWScale=?},
+      idPatternTcpOLength => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpOLength=?},
+      allP                => qq{SELECT idSignatureP FROM SignatureP},
    );
 
-   my $select;
+   my %prepared = ();
+   for my $this (keys %select) {
+      my $select = $dbh->prepare($select{$this});
+      $prepared{$this} = $select;
+   }
+
+   $self->_prepared(\%prepared);
+
+   return 1;
+}
+
+sub searchSignatureIds {
+   my $self = shift;
+   my ($key, $value) = @_;
+
+   my $dbh = $self->_dbh;
+
+   my $select = $self->_prepared->{$key || 'all'};
+
    my $rv;
-   my @list = ();
    # First case, we want only a subset of all signatures
-   if (defined($key) && defined($value)) {
-      $select = $dbh->prepare($patterns{$key});
-      $rv     = $select->execute($value);
+   if ($value) {
+      $rv = $select->execute($value);
    }
    # Second case, we want all signature IDs
    else {
-      $select = $dbh->prepare(qq{SELECT idSignature FROM Signature});
-      $rv     = $select->execute;
+      $rv = $select->execute;
    }
 
-   my $h = $select->fetchall_hashref('idSignature');
-   for my $id (keys %$h) {
-      push @list, $h->{$id};
+   my @list = ();
+   my $a = $select->fetchall_arrayref;
+   for my $id (@$a) {
+      push @list, @$id;
    }
 
    return \@list;
@@ -228,32 +273,22 @@ sub searchSignaturePIds {
 
    my $dbh = $self->_dbh;
 
-   my %patterns = (
-      idPatternTcpFlags   => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpFlags=?},
-      idPatternTcpWindow  => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpWindow=?},
-      idPatternTcpOptions => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpOptions=?},
-      idPatternTcpMss     => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpMss=?},
-      idPatternTcpWScale  => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpWScale=?},
-      idPatternTcpOLength => qq{SELECT idSignatureP from SignatureP WHERE idPatternTcpOLength=?},
-   );
+   my $select = $self->_prepared->{$key || 'allP'};
 
-   my $select;
    my $rv;
-   my @list = ();
    # First case, we want only a subset of all signatures
-   if (defined($key) && defined($value)) {
-      $select = $dbh->prepare($patterns{$key});
-      $rv     = $select->execute($value);
+   if ($value) {
+      $rv = $select->execute($value);
    }
    # Second case, we want all signature IDs
    else {
-      $select = $dbh->prepare(qq{SELECT idSignatureP FROM SignatureP});
-      $rv     = $select->execute;
+      $rv = $select->execute;
    }
 
-   my $h = $select->fetchall_hashref('idSignatureP');
-   for my $id (keys %$h) {
-      push @list, $h->{$id};
+   my @list = ();
+   my $a = $select->fetchall_arrayref;
+   for my $id (@$a) {
+      push @list, @$id;
    }
 
    return \@list;
@@ -265,24 +300,14 @@ sub _lookupSignature {
 
    my $dbh = $self->_dbh;
 
-   my $sIpVersion       = $dbh->prepare(
-      qq{SELECT ipVersion FROM IpVersion WHERE idIpVersion=?}
-   );
-   my $sOs              = $dbh->prepare(
-      qq{SELECT os FROM Os WHERE idOs=?}
-   );
-   my $sOsVersion       = $dbh->prepare(
-      qq{SELECT osVersion FROM OsVersion WHERE idOsVersion=?}
-   );
-   my $sOsVersionFamily = $dbh->prepare(
-      qq{SELECT osVersionFamily FROM OsVersionFamily WHERE idOsVersionFamily=?}
-   );
-   my $sSystemClass     = $dbh->prepare(
-      qq{SELECT systemClass FROM SystemClass WHERE idSystemClass=?}
-   );
-   my $sVendor          = $dbh->prepare(
-      qq{SELECT vendor FROM Vendor WHERE idVendor=?}
-   );
+   my $prepared = $self->_prepared;
+
+   my $sIpVersion = $prepared->{ipVersion};
+   my $sOs = $prepared->{os};
+   my $sOsVersion = $prepared->{osVersion};
+   my $sOsVersionFamily = $prepared->{osVersionFamily};
+   my $sSystemClass = $prepared->{systemClass};
+   my $sVendor = $prepared->{vendor};
 
    my $rv;
    $rv = $sIpVersion->execute($h->{idIpVersion});
@@ -325,27 +350,15 @@ sub lookupPatterns {
 
    my $dbh = $self->_dbh;
 
-   my $sBinary = $dbh->prepare(
-      qq{SELECT * FROM PatternBinary WHERE idPatternBinary=?}
-   );
-   my $sTcpFlags = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpFlags WHERE idPatternTcpFlags=?}
-   );
-   my $sTcpWindow = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpWindow WHERE idPatternTcpWindow=?}
-   );
-   my $sTcpOptions = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpOptions WHERE idPatternTcpOptions=?}
-   );
-   my $sTcpMss = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpMss WHERE idPatternTcpMss=?}
-   );
-   my $sTcpWScale = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpWScale WHERE idPatternTcpWScale=?}
-   );
-   my $sTcpOLength = $dbh->prepare(
-      qq{SELECT * FROM PatternTcpOLength WHERE idPatternTcpOLength=?}
-   );
+   my $prepared = $self->_prepared;
+
+   my $sBinary = $prepared->{patternBinary};
+   my $sTcpFlags = $prepared->{patternTcpFlags};
+   my $sTcpWindow = $prepared->{patternTcpWindow};
+   my $sTcpOptions = $prepared->{patternTcpOptions};
+   my $sTcpMss = $prepared->{patternTcpMss};
+   my $sTcpWScale = $prepared->{patternTcpWScale};
+   my $sTcpOLength = $prepared->{patternTcpOLength};
 
    for my $p ('S1', 'S2', 'S3') {
       my $idBinary     = 'id'.$p.'PatternBinary';
@@ -475,10 +488,9 @@ sub retrieveSignature {
    my $self = shift;
    my ($id) = @_;
 
-   my $dbh    = $self->_dbh;
-   my $select = $dbh->prepare(qq{SELECT * FROM Signature WHERE idSignature=?});
-   my $rv     = $select->execute($id);
-   my $h      = $select->fetchrow_hashref;
+   my $select = $self->_prepared->{signature};
+   my $rv = $select->execute($id);
+   my $h = $select->fetchrow_hashref;
 
    my $signature = $self->_lookupSignature($h);
 
@@ -590,7 +602,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

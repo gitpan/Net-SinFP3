@@ -1,5 +1,5 @@
 #
-# $Id: Active.pm 2194 2012-11-13 20:55:10Z gomor $
+# $Id: Active.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Mode::Active;
 use strict;
@@ -565,7 +565,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

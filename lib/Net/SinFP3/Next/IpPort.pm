@@ -1,5 +1,5 @@
 #
-# $Id: IpPort.pm 2171 2012-09-12 11:45:38Z gomor $
+# $Id: IpPort.pm 2234 2014-04-08 13:05:14Z gomor $
 #
 package Net::SinFP3::Next::IpPort;
 use strict;
@@ -18,16 +18,19 @@ __PACKAGE__->cgBuildAccessorsScalar(\@AS);
 
 sub new {
    my $self = shift->SUPER::new(
-      ip       => '127.0.0.1',
-      port     => 1,
-      mac      => '00:00:00:00:00:00',
+      ip => '127.0.0.1',
+      port => 1,
+      mac => '00:00:00:00:00:00',
       hostname => 'unknown',
-      reverse  => 'unknown',
+      reverse => 'unknown',
       @_,
    );
 
    my $global = $self->global;
-   my $log    = $global->log;
+   my $log = $global->log;
+
+   # Be sure it is in IP format (not Int format)
+   $self->ip($global->intToIp(int => $self->ip)) or return;
 
    if ($global->ipv6 && $self->mac =~ /00:00:00:00:00:00/) {
       my $mac = $global->lookupMac6(ipv6 => $self->ip);
@@ -73,7 +76,7 @@ Patrice E<lt>GomoRE<gt> Auffret
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2011-2012, Patrice E<lt>GomoRE<gt> Auffret
+Copyright (c) 2011-2014, Patrice E<lt>GomoRE<gt> Auffret
 
 You may distribute this module under the terms of the Artistic license.
 See LICENSE.Artistic file in the source distribution archive.

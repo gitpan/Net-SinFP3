@@ -1,5 +1,15 @@
 Revision history for Perl extension Net::SinFP3.
 
+1.22 Tue Apr  8 14:59:07 CEST 2014
+   - UPDATE: huge improvement on matching algorithm (from 3s to 0.5s)
+   - new: Output: preInit(), firstInit(), lastPost()
+   - update: Global: targetIpAsInt like others
+   - update: SinFP3.xs: randomize TCP source port per target IP/port
+   - update: SinFP3.xs: adjust pps, and prints advancement on packet to send
+   - bugfix: Input::SynScan: stops correctly $timeout seconds after 
+             end of send packets
+   - bugfix: Global: correctly write targetSubnet attribute
+
 1.21 Sun Dec  2 17:59:05 CET 2012
    - PERFORMANCE: SinFP3.xs: sinfp3_tcp_synscan(): now can SynScan a /8 by
                   taking less than 1GB of RAM.
